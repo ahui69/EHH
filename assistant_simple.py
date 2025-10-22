@@ -90,12 +90,16 @@ Odpowiadaj:
             {"role": "system", "content": system_prompt}
         ] + body.messages
         
-        # Wywołaj LLM
+        # Wywołaj LLM (sync function)
         log_info("[SIMPLE_CHAT] Wywołuję LLM...")
-        answer = await call_llm(
-            messages=messages_for_llm,
-            temperature=0.7,
-            max_tokens=800
+        
+        # call_llm jest SYNC - użyj run_in_executor
+        import asyncio
+        from functools import partial
+        loop = asyncio.get_running_loop()
+        answer = await loop.run_in_executor(
+            None,
+            partial(call_llm, messages_for_llm, temperature=0.7, max_tokens=800)
         )
         
         log_info(f"[SIMPLE_CHAT] Odpowiedź: {answer[:60]}...")
