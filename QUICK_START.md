@@ -144,12 +144,57 @@ To nie jest błąd! Nowy minimalistyczny interfejs jest w `index_minimal.html` i
 
 ## 📚 Co dalej?
 
-### Eksploruj funkcje:
-- **Travel:** "Znajdź hotele w Krakowie"
-- **Research:** "Sprawdź najnowsze wiadomości o AI"
-- **Writing:** "Napisz artykuł o programowaniu"
-- **Code:** "Wykonaj: ls -la"
-- **Memory:** "Zapamiętaj że lubię pizzę"
+### 💬 **Pisz naturalnie - bez komend!**
+
+Mordzix AI rozumie język naturalny - **nie musisz używać komend ani klikać przycisków!**
+
+#### Przykłady:
+
+**Travel & Places:**
+```
+"Znajdź hotele w Krakowie z basenem"
+"Pokaż restauracje w Warszawie"
+"Zaplanuj wyjazd do Zakopanego"
+```
+
+**Research & Learning:**
+```
+"Sprawdź najnowsze wiadomości o AI"
+"Co nowego w Python 3.12?"
+"Wyszukaj informacje o blockchain"
+```
+
+**Writing & Content:**
+```
+"Napisz artykuł o programowaniu w Python"
+"Stwórz opis produktu dla Vinted"
+"Wygeneruj post na social media"
+```
+
+**Code & System:**
+```
+"Pokaż status systemu"
+"Jakie procesy zużywają RAM?"
+"Sprawdź wolne miejsce na dysku"
+```
+
+**Memory & Context:**
+```
+"Zapamiętaj że lubię pizzę margherita"
+"Co mówiłem wcześniej o Python?"
+"Przypomnij mi co planowaliśmy"
+```
+
+**Files & Images:**
+```
+"Co jest na tym zdjęciu?" (+ załącznik)
+"Przeanalizuj ten PDF"
+"Wyciągnij tekst z obrazu"
+```
+
+🔥 **121 narzędzi aktywowanych automatycznie przez naturalny język!**
+
+Więcej: `NATURAL_LANGUAGE_GUIDE.md`
 
 ### Dokumentacja API:
 - Swagger: http://localhost:8080/docs

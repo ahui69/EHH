@@ -478,12 +478,23 @@
             margin-bottom: var(--spacing-md);
         }
 
+        .capabilities {
+            margin: var(--spacing-xl) 0 var(--spacing-md) 0;
+        }
+
+        .capabilities h3 {
+            font-size: 1rem;
+            color: var(--text-secondary);
+            font-weight: 500;
+            text-align: center;
+        }
+
         .welcome-suggestions {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
             gap: var(--spacing-md);
-            margin-top: var(--spacing-xl);
-            max-width: 800px;
+            margin-top: var(--spacing-lg);
+            max-width: 1000px;
             margin-left: auto;
             margin-right: auto;
         }
@@ -501,6 +512,7 @@
         .suggestion-card:hover {
             border-color: var(--accent);
             transform: translateY(-2px);
+            box-shadow: 0 4px 12px var(--shadow);
         }
 
         .suggestion-icon {
@@ -511,7 +523,35 @@
         .suggestion-title {
             font-size: 0.875rem;
             color: var(--text-primary);
-            font-weight: 500;
+            font-weight: 600;
+            margin-bottom: var(--spacing-xs);
+        }
+
+        .suggestion-text {
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            font-style: italic;
+        }
+
+        .capabilities-hint {
+            margin-top: var(--spacing-xl);
+            padding: var(--spacing-lg);
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-md);
+            text-align: center;
+            max-width: 600px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        .capabilities-hint p {
+            margin: var(--spacing-xs) 0;
+            font-size: 0.875rem;
+        }
+
+        .capabilities-hint strong {
+            color: var(--accent);
         }
 
         /* Mobile Responsive */
@@ -601,25 +641,73 @@
             <div class="welcome" id="welcome-message">
                 <div class="welcome-icon">💬</div>
                 <h2>Witaj w Mordzix AI</h2>
-                <p>Zadaj pytanie lub wybierz jedną z sugestii poniżej</p>
+                <p>Po prostu pisz naturalnie - rozumiem język, nie potrzebuję komend!</p>
+                
+                <div class="capabilities">
+                    <h3>💡 Przykładowe zapytania:</h3>
+                </div>
                 
                 <div class="welcome-suggestions">
-                    <div class="suggestion-card" onclick="sendSuggestion('Wyjaśnij mi jak działa sztuczna inteligencja')">
+                    <!-- Chat & Thinking -->
+                    <div class="suggestion-card" onclick="sendSuggestion('Wyjaśnij mi jak działa blockchain')">
                         <div class="suggestion-icon">🧠</div>
-                        <div class="suggestion-title">Wyjaśnij AI</div>
+                        <div class="suggestion-title">Chat & Analiza</div>
+                        <div class="suggestion-text">"Wyjaśnij mi jak działa blockchain"</div>
                     </div>
-                    <div class="suggestion-card" onclick="sendSuggestion('Znajdź hotele w Krakowie')">
+                    
+                    <!-- Travel -->
+                    <div class="suggestion-card" onclick="sendSuggestion('Znajdź hotele w Krakowie z basenem')">
                         <div class="suggestion-icon">🏨</div>
-                        <div class="suggestion-title">Szukaj hoteli</div>
+                        <div class="suggestion-title">Travel & Places</div>
+                        <div class="suggestion-text">"Znajdź hotele w Krakowie"</div>
                     </div>
-                    <div class="suggestion-card" onclick="sendSuggestion('Napisz artykuł o programowaniu')">
+                    
+                    <!-- Research -->
+                    <div class="suggestion-card" onclick="sendSuggestion('Sprawdź najnowsze wiadomości o AI')">
+                        <div class="suggestion-icon">🔍</div>
+                        <div class="suggestion-title">Web Research</div>
+                        <div class="suggestion-text">"Sprawdź wiadomości o AI"</div>
+                    </div>
+                    
+                    <!-- Writing -->
+                    <div class="suggestion-card" onclick="sendSuggestion('Napisz artykuł o programowaniu w Python')">
                         <div class="suggestion-icon">✍️</div>
-                        <div class="suggestion-title">Generuj tekst</div>
+                        <div class="suggestion-title">Content Writing</div>
+                        <div class="suggestion-text">"Napisz artykuł o Python"</div>
                     </div>
-                    <div class="suggestion-card" onclick="sendSuggestion('Przeanalizuj ten obraz')">
+                    
+                    <!-- Files -->
+                    <div class="suggestion-card" onclick="sendSuggestion('Przeanalizuj załączony obraz')">
                         <div class="suggestion-icon">🖼️</div>
-                        <div class="suggestion-title">Analiza obrazu</div>
+                        <div class="suggestion-title">Image Analysis</div>
+                        <div class="suggestion-text">"Co jest na tym zdjęciu?"</div>
                     </div>
+                    
+                    <!-- Code -->
+                    <div class="suggestion-card" onclick="sendSuggestion('Pokaż mi status systemu')">
+                        <div class="suggestion-icon">💻</div>
+                        <div class="suggestion-title">Code & System</div>
+                        <div class="suggestion-text">"Pokaż status systemu"</div>
+                    </div>
+                    
+                    <!-- Memory -->
+                    <div class="suggestion-card" onclick="sendSuggestion('Zapamiętaj że lubię pizzę margherita')">
+                        <div class="suggestion-icon">🧠</div>
+                        <div class="suggestion-title">Memory</div>
+                        <div class="suggestion-text">"Zapamiętaj że lubię..."</div>
+                    </div>
+                    
+                    <!-- Planning -->
+                    <div class="suggestion-card" onclick="sendSuggestion('Zaplanuj wyjazd do Zakopanego na weekend')">
+                        <div class="suggestion-icon">📅</div>
+                        <div class="suggestion-title">Trip Planning</div>
+                        <div class="suggestion-text">"Zaplanuj wyjazd do..."</div>
+                    </div>
+                </div>
+                
+                <div class="capabilities-hint">
+                    <p>✨ <strong>121 narzędzi aktywowanych naturalnym językiem</strong></p>
+                    <p>Nie musisz używać komend - po prostu pisz jak do człowieka!</p>
                 </div>
             </div>
 
@@ -660,7 +748,7 @@
                 <textarea 
                     class="input-field" 
                     id="message-input" 
-                    placeholder="Napisz wiadomość..."
+                    placeholder="Po prostu napisz co chcesz... np. 'Znajdź hotele w Krakowie' 💬"
                     rows="1"
                     aria-label="Pole wiadomości"
                 ></textarea>
