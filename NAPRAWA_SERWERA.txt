@@ -1,0 +1,111 @@
+╔═══════════════════════════════════════════════════════════════════════╗
+║                 🔧 JAK NAPRAWIĆ SERWER 🔧                            ║
+╚═══════════════════════════════════════════════════════════════════════╝
+
+❌ PROBLEMY ZNALEZIONE:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+1. ❌ "Brak API key dla LLM" 
+   → .env nie ma LLM_API_KEY lub jest źle skonfigurowany
+
+2. ❌ TYLKO 16 endpointów zamiast 100+
+   → Routery NIE SĄ załadowane
+   → Serwer używa starego kodu bez routerów
+
+3. ❌ Memory prawdopodobnie nie działa
+   → Stary kod bez cognitive_engine
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+✅ ROZWIĄZANIE (COPY-PASTE):
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+ssh ubuntu@162.19.220.29
+
+# 1. Idź do katalogu
+cd /workspace/EHH/EHH
+
+# 2. Pobierz skrypt naprawy
+git fetch origin
+git checkout github-ready  
+git pull origin github-ready
+
+# 3. Uruchom skrypt naprawy
+bash DEPLOY_FIX.sh
+
+# 4. Sprawdź czy działa
+curl http://localhost:8080/health
+curl http://localhost:8080/api/endpoints/list | jq '.count'
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🔍 CO ZROBI SKRYPT:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+1. Backup obecnego app.py
+2. Git reset --hard (najnowszy kod)
+3. Sprawdzi czy wszystkie pliki istnieją
+4. Sprawdzi .env (jeśli brak - utworzy z .env.example)
+5. Test importu Python (czy routery działają)
+6. Restart serwera
+7. Sprawdzi logi
+8. Test endpointu
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+⚠️  WAŻNE - .env:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Jeśli nie masz .env lub nie ma w nim LLM_API_KEY, dodaj:
+
+nano .env
+
+Dodaj te linie (z TWOIMI kluczami):
+
+LLM_BASE_URL=https://api.deepinfra.com/v1/openai
+LLM_API_KEY=twoj_klucz_tutaj
+LLM_MODEL=Qwen/Qwen3-Next-80B-A3B-Instruct
+MEM_DB=/workspace/EHH/EHH/mem.db
+UPLOAD_DIR=/workspace/EHH/EHH/uploads
+
+Zapisz: Ctrl+O, Enter, Ctrl+X
+
+Potem restart:
+sudo systemctl restart mordzix-ai
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+✅ PO NAPRAWIE POWINNO BYĆ:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+curl http://localhost:8080/api/endpoints/list | jq '.count'
+
+WYNIK: ~100+ endpointów (nie 16!)
+
+curl -X POST http://localhost:8080/api/chat/assistant \
+  -H "Content-Type: application/json" \
+  -d '{"messages":[{"role":"user","content":"test"}],"use_memory":true}'
+
+WYNIK: Prawdziwa odpowiedź AI (nie "Brak API key")
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🔧 JEŚLI NADAL NIE DZIAŁA:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+1. Sprawdź logi:
+   journalctl -u mordzix-ai -n 100 --no-pager | grep -i error
+
+2. Sprawdź czy import działa:
+   cd /workspace/EHH/EHH
+   python3 -c "from assistant_endpoint import router; print('OK')"
+
+3. Sprawdź czy pliki istnieją:
+   ls -la app.py assistant_endpoint.py core/cognitive_engine.py
+
+4. Sprawdź .env:
+   cat .env | grep LLM_API_KEY
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+URUCHOM DEPLOY_FIX.sh I DAJ ZNAĆ CO WYŚWIETLI!
