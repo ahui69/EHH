@@ -1,0 +1,87 @@
+╔═══════════════════════════════════════════════════════════════════════╗
+║          🔄 AKTUALIZACJA SERWERA Z GITHUB 🔄                         ║
+╚═══════════════════════════════════════════════════════════════════════╝
+
+⚡ NAJSZYBSZA METODA (COPY-PASTE):
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+cd /workspace/EHH/EHH && git pull && source .venv/bin/activate && pip install -r requirements.txt && sudo systemctl restart mordzix-ai && sudo systemctl status mordzix-ai
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🔧 METODA ZE SKRYPTEM (ZALECANA):
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+# 1. Pobierz skrypt (tylko raz)
+cd /workspace/EHH/EHH
+wget https://raw.githubusercontent.com/ahui69/EHH/cursor/review-and-debug-first-code-aa54/update_server.sh
+chmod +x update_server.sh
+
+# 2. Aktualizuj (za każdym razem)
+./update_server.sh
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📝 KROK PO KROKU:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+# 1. SSH
+ssh ubuntu@vps-a3f42e4f
+
+# 2. Przejdź do projektu
+cd /workspace/EHH/EHH
+
+# 3. Zatrzymaj
+sudo systemctl stop mordzix-ai
+
+# 4. Pobierz zmiany
+git pull origin cursor/review-and-debug-first-code-aa54
+
+# 5. Aktywuj venv i aktualizuj deps
+source .venv/bin/activate
+pip install -r requirements.txt --upgrade
+
+# 6. Restart
+sudo systemctl restart mordzix-ai
+
+# 7. Sprawdź
+sudo systemctl status mordzix-ai
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🚀 SZYBKIE HOT RELOAD (bez stop):
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+cd /workspace/EHH/EHH && git pull && sudo systemctl restart mordzix-ai
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🔍 SPRAWDŹ CO SIĘ ZMIENIŁO:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+cd /workspace/EHH/EHH
+git fetch
+git log HEAD..origin/cursor/review-and-debug-first-code-aa54 --oneline
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🛠️ UŻYTECZNE:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+# Status
+sudo systemctl status mordzix-ai
+
+# Logi live
+journalctl -u mordzix-ai -f
+
+# Restart
+sudo systemctl restart mordzix-ai
+
+# Health check
+curl http://localhost:8080/health
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📚 Pełna dokumentacja: UPDATE_GUIDE.md
+
+✅ GOTOWE!
