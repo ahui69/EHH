@@ -1,0 +1,48 @@
+╔═══════════════════════════════════════════════════════════════════════╗
+║        📱 POBIERZ .env NA SERWERZE (ŁATWE Z TELEFONU!) 📱           ║
+╚═══════════════════════════════════════════════════════════════════════╝
+
+⚡ METODA 1: JEDNA KOMENDA (COPY-PASTE)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+cd /workspace/EHH/EHH && wget -O .env https://raw.githubusercontent.com/ahui69/EHH/cursor/review-and-debug-first-code-aa54/.env.production && sudo systemctl restart mordzix-ai
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🔧 METODA 2: ZE SKRYPTEM
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+cd /workspace/EHH/EHH
+wget https://raw.githubusercontent.com/ahui69/EHH/cursor/review-and-debug-first-code-aa54/SETUP_ENV.sh
+chmod +x SETUP_ENV.sh
+./SETUP_ENV.sh
+sudo systemctl restart mordzix-ai
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📝 METODA 3: KROK PO KROKU
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+# 1. SSH
+ssh ubuntu@vps-a3f42e4f
+
+# 2. Idź do projektu
+cd /workspace/EHH/EHH
+
+# 3. Pobierz .env
+wget -O .env https://raw.githubusercontent.com/ahui69/EHH/cursor/review-and-debug-first-code-aa54/.env.production
+
+# 4. Restart
+sudo systemctl restart mordzix-ai
+
+# 5. Sprawdź
+sudo systemctl status mordzix-ai
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+✅ GOTOWE!
+
+.env jest teraz na GitHubie:
+https://github.com/ahui69/EHH/blob/cursor/review-and-debug-first-code-aa54/.env.production
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
