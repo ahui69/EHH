@@ -14,7 +14,7 @@
     ./deploy_ovh.sh
 
 3️⃣  USTAW API KEY:
-    nano /var/www/mordzix-ai/.env
+    nano /workspace/EHH/EHH/.env
     # Ustaw: LLM_API_KEY=twoj_klucz
     # Zapisz: Ctrl+O, Enter, Ctrl+X
     
@@ -43,12 +43,12 @@
     systemctl status mordzix-ai      # Status
     systemctl restart mordzix-ai     # Restart
     journalctl -u mordzix-ai -f      # Logi live
-    nano /var/www/mordzix-ai/.env    # Edytuj config
+    nano /workspace/EHH/EHH/.env    # Edytuj config
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 🔄 AKTUALIZACJE:
-    cd /var/www/mordzix-ai
+    cd /workspace/EHH/EHH
     git pull
     systemctl restart mordzix-ai
 
@@ -68,7 +68,7 @@
     systemctl restart nginx
     
     # LLM errors:
-    nano /var/www/mordzix-ai/.env  # Sprawdź LLM_API_KEY
+    nano /workspace/EHH/EHH/.env  # Sprawdź LLM_API_KEY
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 

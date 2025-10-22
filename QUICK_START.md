@@ -16,8 +16,8 @@ LLM_API_KEY=twoj_klucz_deepinfra  # https://deepinfra.com (FREE 10k tokens/day!)
 AUTH_TOKEN=twoj_tajny_token
 
 # OPCJONALNE (może być puste)
-WORKSPACE=/workspace
-MEM_DB=/workspace/mem.db
+WORKSPACE=/workspace/EHH/EHH
+MEM_DB=/workspace/EHH/EHH/mem.db
 ```
 
 ### 2️⃣ Zainstaluj zależności
