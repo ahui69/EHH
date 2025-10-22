@@ -10,7 +10,7 @@ from typing import List, Dict, Any, Optional
 import asyncio
 import time
 
-from core.auth import verify_token
+from core.auth import auth_dependency
 from batch_processing import (
     process_batch, 
     call_llm_batch, 

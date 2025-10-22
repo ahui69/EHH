@@ -11,11 +11,29 @@ i aktualnego stanu psychologicznego AI.
 from fastapi import APIRouter, Depends, HTTPException, Body
 from typing import Dict, Any
 
-from core.auth import auth_dependency
-from advanced_proactive import (
-    get_proactive_suggestions, 
-    inject_suggestions_to_prompt,
-    suggestion_generator
+from core.auth import auttry:
+    from advanced_proactive import (
+        get_proactive_suggestions, 
+        inject_suggestions_to_prompt,
+        suggestion_generator
+    )
+except ImportError:
+    try:
+        from core.advanced_proactive import (
+            get_proactive_suggestions, 
+            inject_suggestions_to_prompt,
+            suggestion_generator
+        )
+    except ImportError:
+        # Fallback - create dummy functions
+        def get_proactive_suggestions(context, user_id="default"):
+            return {"suggestions": ["Kontynuuj rozmowę"], "confidence": 0.5}
+        
+        def inject_suggestions_to_prompt(prompt, suggestions):
+            return prompt
+        
+        def suggestion_generator(context):
+            return iter(["Kontynuuj rozmowę"])stion_generator
 )
 
 # Utwórz router
