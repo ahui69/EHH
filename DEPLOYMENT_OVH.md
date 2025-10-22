@@ -52,7 +52,7 @@ python3 --version
 
 ```bash
 # Przejdź do katalogu aplikacji
-cd /var/www
+cd /workspace/EHH
 
 # Sklonuj repo
 sudo git clone https://github.com/ahui69/EHH.git mordzix-ai
@@ -62,7 +62,7 @@ cd mordzix-ai
 sudo git checkout cursor/review-and-debug-first-code-aa54
 
 # Ustaw uprawnienia
-sudo chown -R $USER:$USER /var/www/mordzix-ai
+sudo chown -R $USER:$USER /workspace/EHH/EHH
 ```
 
 ---
@@ -88,9 +88,9 @@ SERPAPI_KEY=twoj_serpapi_key
 FIRECRAWL_API_KEY=twoj_firecrawl_key
 
 # PATHS (dla produkcji)
-WORKSPACE=/var/www/mordzix-ai
-MEM_DB=/var/www/mordzix-ai/mem.db
-UPLOAD_DIR=/var/www/mordzix-ai/uploads
+WORKSPACE=/workspace/EHH/EHH/EHH/EHH
+MEM_DB=/workspace/EHH/EHH/mem.db
+UPLOAD_DIR=/workspace/EHH/EHH/uploads
 
 # LOG
 LOG_LEVEL=INFO
@@ -208,9 +208,9 @@ After=network.target
 [Service]
 Type=simple
 User=root
-WorkingDirectory=/var/www/mordzix-ai
-Environment="PATH=/var/www/mordzix-ai/.venv/bin"
-ExecStart=/var/www/mordzix-ai/.venv/bin/python -m uvicorn app:app --host 127.0.0.1 --port 8080 --workers 2
+WorkingDirectory=/workspace/EHH/EHH
+Environment="PATH=/workspace/EHH/EHH/.venv/bin"
+ExecStart=/workspace/EHH/EHH/.venv/bin/python -m uvicorn app:app --host 127.0.0.1 --port 8080 --workers 2
 Restart=always
 RestartSec=10
 StandardOutput=append:/var/log/mordzix-ai.log
@@ -296,7 +296,7 @@ sudo ufw status
 ssh root@twoj-serwer.ovh.net
 
 # Przejdź do projektu
-cd /var/www/mordzix-ai
+cd /workspace/EHH/EHH
 
 # Pull zmian
 git pull origin cursor/review-and-debug-first-code-aa54
@@ -346,7 +346,7 @@ sudo nginx -t
 sudo systemctl status nginx
 
 # Sprawdź Python
-cd /var/www/mordzix-ai
+cd /workspace/EHH/EHH
 source .venv/bin/activate
 python3 -c "from app import app; print('OK')"
 ```
@@ -418,7 +418,7 @@ sudo systemctl restart nginx
 
 ### **Problem: "ModuleNotFoundError"**
 ```bash
-cd /var/www/mordzix-ai
+cd /workspace/EHH/EHH
 source .venv/bin/activate
 pip install -r requirements.txt
 sudo systemctl restart mordzix-ai
@@ -427,10 +427,10 @@ sudo systemctl restart mordzix-ai
 ### **Problem: "LLM_API_KEY not set"**
 ```bash
 # Sprawdź .env
-cat /var/www/mordzix-ai/.env | grep LLM_API_KEY
+cat /workspace/EHH/EHH/.env | grep LLM_API_KEY
 
 # Edytuj jeśli brak
-nano /var/www/mordzix-ai/.env
+nano /workspace/EHH/EHH/.env
 
 # Restart
 sudo systemctl restart mordzix-ai
@@ -451,11 +451,11 @@ sudo apt update && sudo apt upgrade -y
 sudo apt install -y python3 python3-pip python3-venv git nginx ufw
 
 # Sklonuj projekt
-cd /var/www
+cd /workspace/EHH
 sudo git clone https://github.com/ahui69/EHH.git mordzix-ai
 cd mordzix-ai
 sudo git checkout cursor/review-and-debug-first-code-aa54
-sudo chown -R $USER:$USER /var/www/mordzix-ai
+sudo chown -R $USER:$USER /workspace/EHH/EHH
 
 # Stwórz .env
 cp .env.example .env
@@ -498,9 +498,9 @@ After=network.target
 [Service]
 Type=simple
 User=root
-WorkingDirectory=/var/www/mordzix-ai
-Environment="PATH=/var/www/mordzix-ai/.venv/bin"
-ExecStart=/var/www/mordzix-ai/.venv/bin/python -m uvicorn app:app --host 127.0.0.1 --port 8080
+WorkingDirectory=/workspace/EHH/EHH
+Environment="PATH=/workspace/EHH/EHH/.venv/bin"
+ExecStart=/workspace/EHH/EHH/.venv/bin/python -m uvicorn app:app --host 127.0.0.1 --port 8080
 Restart=always
 
 [Install]
@@ -562,7 +562,7 @@ sudo journalctl -u mordzix-ai -f    # Logi live
 
 **Aktualizacje:**
 ```bash
-cd /var/www/mordzix-ai
+cd /workspace/EHH/EHH
 git pull
 sudo systemctl restart mordzix-ai
 ```

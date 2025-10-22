@@ -200,7 +200,7 @@ LLM_API_KEY=your_deepinfra_key
 LLM_MODEL=zai-org/GLM-4.5
 
 # Paths
-WORKSPACE=/workspace/mrd
+WORKSPACE=/workspace/EHH/EHH/mrd
 MEM_DB=/workspace/mrd/mem.db
 
 # External APIs (OPTIONAL)

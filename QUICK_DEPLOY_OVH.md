@@ -32,7 +32,7 @@ chmod +x deploy_ovh.sh
 ### **KROK 3: Ustaw API KEY**
 ```bash
 # Edytuj .env
-nano /var/www/mordzix-ai/.env
+nano /workspace/EHH/EHH/.env
 
 # Znajdź i ustaw:
 LLM_API_KEY=twoj_klucz_z_deepinfra
@@ -95,10 +95,10 @@ journalctl -u mordzix-ai -f
 curl http://localhost:8080/health
 
 # Edytuj config
-nano /var/www/mordzix-ai/.env
+nano /workspace/EHH/EHH/.env
 
 # Aktualizuj z GitHub
-cd /var/www/mordzix-ai
+cd /workspace/EHH/EHH
 git pull
 systemctl restart mordzix-ai
 ```
@@ -122,10 +122,10 @@ systemctl restart mordzix-ai
 ### **"LLM_API_KEY not set"**
 ```bash
 # Sprawdź .env
-cat /var/www/mordzix-ai/.env | grep LLM_API_KEY
+cat /workspace/EHH/EHH/.env | grep LLM_API_KEY
 
 # Edytuj
-nano /var/www/mordzix-ai/.env
+nano /workspace/EHH/EHH/.env
 
 # Restart
 systemctl restart mordzix-ai

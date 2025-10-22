@@ -67,19 +67,19 @@ fi
 # ═══════════════════════════════════════════════════════════════════════
 print_step "Klonowanie projektu z GitHub..."
 
-if [ -d "/var/www/mordzix-ai" ]; then
-    print_warning "Katalog /var/www/mordzix-ai już istnieje. Usuwam..."
-    rm -rf /var/www/mordzix-ai
+if [ -d "/workspace/EHH/EHH" ]; then
+    print_warning "Katalog /workspace/EHH/EHH już istnieje. Usuwam..."
+    rm -rf /workspace/EHH/EHH
 fi
 
-mkdir -p /var/www
-cd /var/www
+mkdir -p /workspace/EHH
+cd /workspace/EHH
 
-git clone https://github.com/ahui69/EHH.git mordzix-ai
-cd mordzix-ai
+git clone https://github.com/ahui69/EHH.git EHH
+cd EHH
 git checkout cursor/review-and-debug-first-code-aa54
 
-print_step "Projekt sklonowany: /var/www/mordzix-ai"
+print_step "Projekt sklonowany: /workspace/EHH/EHH"
 
 # ═══════════════════════════════════════════════════════════════════════
 # KROK 4: KONFIGURACJA .env
@@ -96,16 +96,16 @@ if [ ! -f ".env" ]; then
     if [ "$EDIT_ENV" = "y" ]; then
         nano .env
     else
-        print_warning "PAMIĘTAJ: edytuj .env później: nano /var/www/mordzix-ai/.env"
+        print_warning "PAMIĘTAJ: edytuj .env później: nano /workspace/EHH/EHH/.env"
     fi
 else
     print_step ".env już istnieje - używam istniejącego"
 fi
 
 # Ustaw ścieżki dla produkcji
-sed -i 's|WORKSPACE=.*|WORKSPACE=/var/www/mordzix-ai|' .env
-sed -i 's|MEM_DB=.*|MEM_DB=/var/www/mordzix-ai/mem.db|' .env
-sed -i 's|UPLOAD_DIR=.*|UPLOAD_DIR=/var/www/mordzix-ai/uploads|' .env
+sed -i 's|WORKSPACE=.*|WORKSPACE=/workspace/EHH/EHH/EHH/EHH|' .env
+sed -i 's|MEM_DB=.*|MEM_DB=/workspace/EHH/EHH/mem.db|' .env
+sed -i 's|UPLOAD_DIR=.*|UPLOAD_DIR=/workspace/EHH/EHH/uploads|' .env
 
 # ═══════════════════════════════════════════════════════════════════════
 # KROK 5: VIRTUAL ENV I DEPENDENCIES
@@ -190,9 +190,9 @@ After=network.target
 [Service]
 Type=simple
 User=root
-WorkingDirectory=/var/www/mordzix-ai
-Environment="PATH=/var/www/mordzix-ai/.venv/bin"
-ExecStart=/var/www/mordzix-ai/.venv/bin/python -m uvicorn app:app --host 127.0.0.1 --port 8080 --workers 2
+WorkingDirectory=/workspace/EHH/EHH
+Environment="PATH=/workspace/EHH/EHH/.venv/bin"
+ExecStart=/workspace/EHH/EHH/.venv/bin/python -m uvicorn app:app --host 127.0.0.1 --port 8080 --workers 2
 Restart=always
 RestartSec=10
 StandardOutput=append:/var/log/mordzix-ai.log
@@ -274,13 +274,13 @@ echo "   Restart: systemctl restart mordzix-ai"
 echo "   Logi:    journalctl -u mordzix-ai -f"
 echo ""
 echo "📁 Pliki:"
-echo "   App:     /var/www/mordzix-ai"
-echo "   Config:  /var/www/mordzix-ai/.env"
+echo "   App:     /workspace/EHH/EHH"
+echo "   Config:  /workspace/EHH/EHH/.env"
 echo "   Nginx:   /etc/nginx/sites-available/mordzix-ai"
 echo "   Service: /etc/systemd/system/mordzix-ai.service"
 echo ""
 echo "🔐 WAŻNE - NASTĘPNE KROKI:"
-echo "   1. Sprawdź .env: nano /var/www/mordzix-ai/.env"
+echo "   1. Sprawdź .env: nano /workspace/EHH/EHH/.env"
 echo "   2. Ustaw LLM_API_KEY (https://deepinfra.com)"
 echo "   3. Restart: systemctl restart mordzix-ai"
 if [ "$SERVER_IP" != "NIEZNANE_IP" ]; then
@@ -292,7 +292,7 @@ echo "   apt install certbot python3-certbot-nginx"
 echo "   certbot --nginx -d twoja-domena.pl"
 echo ""
 echo "💡 Aktualizacje:"
-echo "   cd /var/www/mordzix-ai"
+echo "   cd /workspace/EHH/EHH"
 echo "   git pull"
 echo "   systemctl restart mordzix-ai"
 echo ""
