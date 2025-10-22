@@ -2,39 +2,39 @@
 # -*- coding: utf-8 -*-
 """
 Proactive Suggestions Endpoint - Endpoint FastAPI dla proaktywnych sugestii
-
-Ten plik definiuje endpoint API dla systemu proaktywnych sugestii,
-umożliwiający pobieranie sugestii dopasowanych do kontekstu konwersacji
-i aktualnego stanu psychologicznego AI.
 """
 
 from fastapi import APIRouter, Depends, HTTPException, Body
 from typing import Dict, Any
 
-from core.auth import auttry:
-    from advanced_proactive import (
+from core.auth import auth_dependency
+
+try:
+    from core.advanced_proactive import (
         get_proactive_suggestions, 
         inject_suggestions_to_prompt,
         suggestion_generator
     )
 except ImportError:
-    try:
-        from core.advanced_proactive import (
-            get_proactive_suggestions, 
-            inject_suggestions_to_prompt,
-            suggestion_generator
-        )
-    except ImportError:
-        # Fallback - create dummy functions
-        def get_proactive_suggestions(context, user_id="default"):
-            return {"suggestions": ["Kontynuuj rozmowę"], "confidence": 0.5}
-        
-        def inject_suggestions_to_prompt(prompt, suggestions):
-            return prompt
-        
-        def suggestion_generator(context):
-            return iter(["Kontynuuj rozmowę"])stion_generator
-)
+    # Fallback - create dummy functions
+    def get_proactive_suggestions(context=None, user_id="default", **kwargs):
+        return {"suggestions": ["Kontynuuj rozmowę"], "confidence": 0.5}
+    
+    def inject_suggestions_to_prompt(prompt, suggestions):
+        return prompt
+    
+    class DummySuggestionGenerator:
+        def get_suggestion_stats(self):
+            return {"total": 0, "accepted": 0}
+        class conversation_analyzer:
+            @staticmethod
+            def get_conversation_summary():
+                return {"messages": 0}
+            @staticmethod
+            def analyze_message(user_id, message):
+                return {"sentiment": "neutral"}
+    
+    suggestion_generator = DummySuggestionGenerator()
 
 # Utwórz router
 router = APIRouter(
@@ -44,34 +44,19 @@ router = APIRouter(
 )
 
 
-@router.post("/generate", summary="Generuje proaktywne sugestie dla wiadomości")
+@router.post("/generate", summary="Generuje proaktywne sugestie")
 async def generate_suggestions(
     data: Dict[str, Any] = Body(...),
     _: bool = Depends(auth_dependency)
 ):
-    """
-    Generuje proaktywne sugestie dla wiadomości użytkownika.
-    
-    Args:
-        data: Zawiera:
-            - user_id: ID użytkownika
-            - message: Wiadomość użytkownika
-            - conversation_history: (opcjonalne) Historia konwersacji
-            - last_ai_response: (opcjonalne) Ostatnia odpowiedź AI
-            - force: (opcjonalne) Wymuś sugestię
-            
-    Returns:
-        Lista sugestii
-    """
+    """Generuje proaktywne sugestie dla wiadomości użytkownika."""
     try:
-        # Sprawdź wymagane pola
         user_id = data.get("user_id", "default_user")
         message = data.get("message")
         
         if not message:
             raise HTTPException(status_code=400, detail="Brakujące pole: message")
         
-        # Opcjonalne pola
         conversation_history = data.get("conversation_history", [])
         last_ai_response = data.get("last_ai_response", "")
         force = data.get("force", False)
@@ -89,7 +74,6 @@ async def generate_suggestions(
             "status": "success",
             "suggestions": suggestions
         }
-    
     except Exception as e:
         return {
             "status": "error",
@@ -102,17 +86,7 @@ async def inject_suggestions(
     data: Dict[str, Any] = Body(...),
     _: bool = Depends(auth_dependency)
 ):
-    """
-    Dodaje sugestie do promptu systemowego.
-    
-    Args:
-        data: Zawiera:
-            - base_prompt: Bazowy prompt systemowy
-            - suggestions: Lista sugestii
-            
-    Returns:
-        Prompt z dodanymi sugestiami
-    """
+    """Dodaje sugestie do promptu systemowego."""
     try:
         base_prompt = data.get("base_prompt", "")
         suggestions = data.get("suggestions", [])
@@ -120,14 +94,12 @@ async def inject_suggestions(
         if not base_prompt:
             raise HTTPException(status_code=400, detail="Brakujące pole: base_prompt")
         
-        # Dodaj sugestie do promptu
         enhanced_prompt = inject_suggestions_to_prompt(base_prompt, suggestions)
         
         return {
             "status": "success",
             "enhanced_prompt": enhanced_prompt
         }
-    
     except Exception as e:
         return {
             "status": "error",
@@ -137,12 +109,7 @@ async def inject_suggestions(
 
 @router.get("/stats", summary="Pobiera statystyki sugestii")
 async def get_stats(_: bool = Depends(auth_dependency)):
-    """
-    Pobiera statystyki generowania sugestii.
-    
-    Returns:
-        Statystyki sugestii
-    """
+    """Pobiera statystyki generowania sugestii."""
     try:
         stats = suggestion_generator.get_suggestion_stats()
         conv_summary = suggestion_generator.conversation_analyzer.get_conversation_summary()
@@ -152,7 +119,6 @@ async def get_stats(_: bool = Depends(auth_dependency)):
             "suggestion_stats": stats,
             "conversation_summary": conv_summary
         }
-    
     except Exception as e:
         return {
             "status": "error",
@@ -160,38 +126,25 @@ async def get_stats(_: bool = Depends(auth_dependency)):
         }
 
 
-@router.post("/analyze", summary="Analizuje wiadomość bez generowania sugestii")
+@router.post("/analyze", summary="Analizuje wiadomość")
 async def analyze_message(
     data: Dict[str, Any] = Body(...),
     _: bool = Depends(auth_dependency)
 ):
-    """
-    Analizuje wiadomość bez generowania sugestii.
-    
-    Args:
-        data: Zawiera:
-            - user_id: ID użytkownika
-            - message: Wiadomość użytkownika
-            
-    Returns:
-        Wyniki analizy
-    """
+    """Analizuje wiadomość bez generowania sugestii."""
     try:
-        # Sprawdź wymagane pola
         user_id = data.get("user_id", "default_user")
         message = data.get("message")
         
         if not message:
             raise HTTPException(status_code=400, detail="Brakujące pole: message")
         
-        # Analizuj wiadomość
         analysis = suggestion_generator.conversation_analyzer.analyze_message(user_id, message)
         
         return {
             "status": "success",
             "analysis": analysis
         }
-    
     except Exception as e:
         return {
             "status": "error",
