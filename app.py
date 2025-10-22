@@ -342,3 +342,41 @@ if __name__ == "__main__":
         reload=False,
         log_level="info"
     )
+# Endpointy /api/chat/assistant i /api/chat są obsługiwane przez assistant_endpoint.py
+# który używa cognitive_engine z pełną pamięcią (STM/LTM) i kontekstem!
+
+# ═══════════════════════════════════════════════════════════════════
+# FILE UPLOAD
+# ═══════════════════════════════════════════════════════════════════
+UPLOAD_DIR = "/workspace/mrd/uploads"
+os.makedirs(UPLOAD_DIR, exist_ok=True)
+
+@app.post("/api/files/upload")
+async def upload_file(file: UploadFile = File(...)):
+    """Upload file"""
+    try:
+        import uuid
+        fid = f"{int(time.time())}_{uuid.uuid4().hex}_{file.filename}"
+        path = os.path.join(UPLOAD_DIR, fid)
+        
+        content = await file.read()
+        with open(path, "wb") as f:
+            f.write(content)
+        
+        return {
+            "ok": True,
+            "file_id": fid,
+            "filename": file.filename,
+            "size": len(content),
+            "url": f"/api/files/{fid}"
+        }
+    except Exception as e:
+        return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
+
+@app.get("/api/files/{file_id}")
+async def get_file(file_id: str):
+    """Download file"""
+    path = os.path.join(UPLOAD_DIR, file_id)
+    if not os.path.isfile(path):
+        return JSONResponse({"ok": False, "error": "File not found"}, status_code=404)
+    return FileResponse(path)
