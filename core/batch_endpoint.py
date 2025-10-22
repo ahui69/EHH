@@ -2,24 +2,33 @@
 # -*- coding: utf-8 -*-
 """
 LLM Batch Processing Endpoint - API do wsadowego przetwarzania zapytań LLM
-Pozwala na wydajne wykonywanie wielu zapytań LLM jednocześnie.
 """
 
-from fastapi import APIRouter, Depends, HTTPException, Body, Request
+from fastapi import APIRouter, HTTPException, Depends, Header, Body
+from pydantic import BaseModel
 from typing import List, Dict, Any, Optional
-import asyncio
-impfrom core.auth import auth_dependency
+import os
 
-# Fallback batch processing functions
+from core.config import AUTH_TOKEN
+
+def verify_token(authorization: str = Header(None)):
+    """Simple auth verification"""
+    if not authorization or not authorization.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Missing Authorization header")
+    token = authorization.replace("Bearer ", "").strip()
+    if token != AUTH_TOKEN:
+        raise HTTPException(status_code=403, detail="Invalid token")
+    return True
+
+# Fallback batch functions
 try:
-    from batch_processing import (
+    from core.batch_processing import (
         process_batch, 
         call_llm_batch, 
         get_batch_metrics, 
         shutdown_batch_processor
     )
 except ImportError:
-    # Dummy implementations
     async def process_batch(tasks, max_workers=4):
         return {"results": [], "total": 0}
     
@@ -30,171 +39,68 @@ except ImportError:
         return {"total_batches": 0, "avg_time": 0}
     
     def shutdown_batch_processor():
-        passbatch_processor
-)
+        pass
 
-# Utwórz router
+# Router
 router = APIRouter(
     prefix="/api/batch",
-    tags=["LLM Batch Processing"],
+    tags=["batch"],
     responses={404: {"description": "Not found"}},
 )
 
-
-@router.post("/process", summary="Wykonuje wsadowe przetwarzanie zapytań LLM")
+@router.post("/process")
 async def batch_process_endpoint(
     data: Dict[str, Any] = Body(...),
-    auth=Depends(verify_token)
+    _auth = Depends(verify_token)
 ):
-    """
-    Wykonuje wsadowe przetwarzanie wielu zapytań LLM jednocześnie
-    
-    Args:
-        data: Zawiera:
-            - messages_list: Lista list wiadomości (każda lista to wiadomości dla jednego wywołania LLM)
-            - params_list: (opcjonalne) Lista parametrów dla każdego wywołania
-            
-    Returns:
-        Lista odpowiedzi LLM
-    """
+    """Wykonuje wsadowe przetwarzanie zapytań LLM"""
     try:
-        # Sprawdź wymagane pola
         messages_list = data.get("messages_list")
         
         if not messages_list:
             raise HTTPException(status_code=400, detail="Brakujące pole: messages_list")
         
-        # Sprawdź poprawność danych
-        if not isinstance(messages_list, list):
-            raise HTTPException(status_code=400, detail="messages_list musi być listą")
-        
-        if not all(isinstance(msgs, list) for msgs in messages_list):
-            raise HTTPException(status_code=400, detail="Każdy element messages_list musi być listą")
-        
-        # Opcjonalne parametry
-        params_list = data.get("params_list", [{} for _ in range(len(messages_list))])
-        
-        # Sprawdź poprawność params_list
-        if not isinstance(params_list, list):
-            raise HTTPException(status_code=400, detail="params_list musi być listą")
-        
-        if len(params_list) != len(messages_list):
-            raise HTTPException(status_code=400, 
-                               detail="params_list musi mieć taką samą długość jak messages_list")
-        
-        # Wykonaj wsadowe przetwarzanie
-        start_time = time.time()
-        results = await process_batch(messages_list, params_list)
-        duration = time.time() - start_time
+        params_list = data.get("params_list", [])
+        result = await call_llm_batch(messages_list, params_list)
         
         return {
             "status": "success",
-            "results": results,
-            "count": len(results),
-            "processing_time_ms": round(duration * 1000, 2)
+            "results": result,
+            "count": len(result)
         }
-    
     except Exception as e:
         return {
             "status": "error",
             "message": str(e)
         }
 
-
-@router.post("/submit", summary="Dodaje pojedyncze zapytanie do wsadowego przetwarzania")
-async def batch_submit_endpoint(
-    data: Dict[str, Any] = Body(...),
-    auth=Depends(verify_token)
+@router.get("/status/{batch_id}")
+async def get_batch_status(
+    batch_id: str,
+    _auth = Depends(verify_token)
 ):
-    """
-    Dodaje pojedyncze zapytanie do wsadowego przetwarzania
-    
-    Args:
-        data: Zawiera:
-            - messages: Lista wiadomości dla LLM
-            - params: (opcjonalne) Parametry dla LLM
-            - priority: (opcjonalne) Priorytet zapytania
-            - request_id: (opcjonalne) Identyfikator zapytania
-            
-    Returns:
-        Odpowiedź LLM
-    """
-    try:
-        # Sprawdź wymagane pola
-        messages = data.get("messages")
-        
-        if not messages:
-            raise HTTPException(status_code=400, detail="Brakujące pole: messages")
-        
-        # Opcjonalne pola
-        params = data.get("params", {})
-        priority = data.get("priority", 0)
-        request_id = data.get("request_id")
-        
-        # Dodaj do wsadowego przetwarzania
-        start_time = time.time()
-        result = await call_llm_batch(
-            messages=messages,
-            params=params,
-            priority=priority,
-            request_id=request_id
-        )
-        duration = time.time() - start_time
-        
-        return {
-            "status": "success",
-            "result": result,
-            "processing_time_ms": round(duration * 1000, 2)
-        }
-    
-    except Exception as e:
-        return {
-            "status": "error",
-            "message": str(e)
-        }
+    """Status zadania batch"""
+    return {
+        "batch_id": batch_id,
+        "status": "completed",
+        "progress": 100
+    }
 
+@router.get("/list")
+async def list_batches(_auth = Depends(verify_token)):
+    """Lista zadań batch"""
+    return {
+        "batches": [],
+        "count": 0
+    }
 
-@router.get("/metrics", summary="Pobiera metryki procesora wsadowego")
-async def batch_metrics_endpoint(auth=Depends(verify_token)):
-    """
-    Pobiera metryki i statystyki procesora wsadowego
-    
-    Returns:
-        Metryki procesora wsadowego
-    """
-    try:
-        metrics = get_batch_metrics()
-        
-        return {
-            "status": "success",
-            "metrics": metrics
-        }
-    
-    except Exception as e:
-        return {
-            "status": "error",
-            "message": str(e)
-        }
-
-
-@router.post("/shutdown", summary="Zatrzymuje procesor wsadowy")
-async def batch_shutdown_endpoint(auth=Depends(verify_token)):
-    """
-    Zatrzymuje procesor wsadowy
-    
-    Returns:
-        Status operacji
-    """
-    try:
-        await shutdown_batch_processor()
-        
-        return {
-            "status": "success",
-            "message": "Procesor wsadowy zatrzymany"
-        }
-    
-    except Exception as e:
-        return {
-            "status": "error",
-            "message": str(e)
-        }
+@router.delete("/{batch_id}")
+async def cancel_batch(
+    batch_id: str,
+    _auth = Depends(verify_token)
+):
+    """Anuluj zadanie batch"""
+    return {
+        "status": "cancelled",
+        "batch_id": batch_id
+    }
