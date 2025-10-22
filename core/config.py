@@ -24,7 +24,10 @@ except ImportError:
 # AUTHENTICATION & SECURITY
 # ═══════════════════════════════════════════════════════════════════
 
-AUTH_TOKEN = os.getenv("AUTH_TOKEN", "ssjjMijaja6969")
+AUTH_TOKEN = os.getenv("AUTH_TOKEN")
+if not AUTH_TOKEN:
+    print("[WARN] AUTH_TOKEN not set in .env - using default (INSECURE!)")
+    AUTH_TOKEN = "ssjjMijaja6969"
 
 # ═══════════════════════════════════════════════════════════════════
 # PATHS & DIRECTORIES
@@ -48,7 +51,10 @@ ALLOWED_ORIGINS = os.getenv("ALLOWED_ORIGINS", "*")
 # ═══════════════════════════════════════════════════════════════════
 
 LLM_BASE_URL = os.getenv("LLM_BASE_URL", "https://api.deepinfra.com/v1/openai")
-LLM_API_KEY = os.getenv("LLM_API_KEY", "w52XW0XN6zoV9hdY8OONhLu6tvnFaXbZ")
+LLM_API_KEY = os.getenv("LLM_API_KEY")
+if not LLM_API_KEY:
+    print("[ERROR] LLM_API_KEY not set in .env! Get your key from https://deepinfra.com")
+    print("[ERROR] Application will not work without LLM API key!")
 LLM_MODEL = os.getenv("LLM_MODEL", "Qwen/Qwen3-Next-80B-A3B-Instruct")
 LLM_FALLBACK_MODEL = os.getenv("LLM_FALLBACK_MODEL", "Qwen/Qwen3-Next-80B-A3B-Instruct")
 LLM_TIMEOUT = int(os.getenv("LLM_TIMEOUT", "45"))

@@ -471,25 +471,17 @@ async def automation_status():
 # FRONTEND ROUTES - ANGULAR APP
 # ═══════════════════════════════════════════════════════════════════
 
-FRONTEND_DIST = BASE_DIR / "frontend" / "dist" / "mordzix-ai"
-
-# Serwowanie statycznych plików z Angular dist/ (tylko jeśli istnieją)
-assets_dir = FRONTEND_DIST / "assets"
-if assets_dir.exists():
-    app.mount("/assets", StaticFiles(directory=str(assets_dir)), name="assets")
-
-import random
-import string
-
-def generate_cache_buster(length=8):
-    """Generuje losowy ciąg znaków do cache-busting."""
-    return ''.join(random.choices(string.ascii_lowercase + string.digits, k=length))
-
-@app.get("/", response_class=HTMLResponse)
+FRONTEND_DIS@app.get("/", response_class=HTMLResponse)
 @app.get("/app", response_class=HTMLResponse)
 @app.get("/chat", response_class=HTMLResponse)
 async def serve_frontend(request: Request):
-    """Główny interfejs czatu - Angular SPA"""
+    """Główny interfejs czatu"""
+    # 1. Spróbuj nowy minimalistyczny interfejs
+    minimal_index = BASE_DIR / "index_minimal.html"
+    if minimal_index.exists():
+        return HTMLResponse(content=minimal_index.read_text(encoding="utf-8"))
+    
+    # 2. Spróbuj Angular SPA
     angular_index = FRONTEND_DIST / "index.html"
     if angular_index.exists():
         content = angular_index.read_text(encoding="utf-8")
@@ -501,6 +493,54 @@ async def serve_frontend(request: Request):
         # Usuń lazy-load atrybuty które mogą blokować załadowanie styli
         content = content.replace(' media="print" onload="this.media=\'all\'"', '')
         return HTMLResponse(content=content)
+    
+    # 3. Fallback - stary index.html
+    fallback_index = BASE_DIR / "index.html"
+    if fallback_index.exists():
+        return HTMLResponse(content=fallback_index.read_text(encoding="utf-8"))
+    
+    # 4. Brak frontendu
+    return HTMLResponse(
+        content="""
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>Mordzix AI</title>
+            <style>
+                body { 
+                    font-family: sans-serif; 
+                    background: #0A0E17; 
+                    color: #E5E7EB; 
+                    padding: 40px;
+                    text-align: center;
+                }
+                .container { max-width: 600px; margin: 0 auto; }
+                h1 { color: #2563EB; margin-bottom: 20px; }
+                .status { background: #1A1F2E; padding: 20px; border-radius: 12px; margin: 20px 0; }
+                a { color: #2563EB; text-decoration: none; }
+                a:hover { text-decoration: underline; }
+                code { background: #141821; padding: 4px 8px; border-radius: 4px; }
+            </style>
+        </head>
+        <body>
+            <div class="container">
+                <h1>🤖 Mordzix AI</h1>
+                <div class="status">
+                    <h2>⚙️ Konfiguracja wymagana</h2>
+                    <p>Frontend nie znaleziony. Możesz:</p>
+                    <ol style="text-align: left;">
+                        <li>Użyć API bezpośrednio: <a href="/docs">/docs</a></li>
+                        <li>Zbudować Angular: <code>cd frontend && npm run build:prod</code></li>
+                    </ol>
+                </div>
+                <p><a href="/docs">📚 API Documentation</a></p>
+                <p><a href="/status">🔍 System Status</a></p>
+            </div>
+        </body>
+        </html>
+        """,
+        status_code=200
+    )TMLResponse(content=content)
     
     # Fallback
     fallback_index = BASE_DIR / "index.html"
@@ -582,20 +622,25 @@ async def serve_favicon():
     """Favicon"""
     paths = [
         FRONTEND_DIST / "favicon.ico",
-        BASE_DIR / "dist" / "favicon.ico",
-        BASE_DIR / "favicon.ico",
-        BASE_DIR / "icons" / "favicon.ico"
-    ]
-    for path in paths:
-        if path.exists():
-            return FileResponse(path, media_type="image/x-icon")
-    return HTMLResponse(status_code=404)
-
-# Static files (assets, icons)
-if (BASE_DIR / "icons").exists():
-    app.mount("/icons", StaticFiles(directory=str(BASE_DIR / "icons")), name="icons")
-
-# ═══════════════════════════════════════════════════════════════════
+        BASE@app.on_event("startup")
+async def startup_event():
+    """Inicjalizacja przy starcie"""
+    
+    # Walidacja środowiska
+    try:
+        from core.env_validator import validate_environment
+        validate_environment(strict=False)
+    except Exception as e:
+        print(f"[WARN] Environment validation failed: {e}")
+    
+    # FAST_START pozwala pominąć ciężkie inicjalizacje na maszynach o ograniczonych zasobach.
+    FAST_START = os.environ.get("MORDZIX_FAST_START") == "1" or os.environ.get("FAST_START") == "1"
+    if FAST_START:
+        print("[INFO] FAST_START=1 - pomijam ciężkie inicjalizacje (DB/LTM/semantic).")
+    
+    print("\n" + "="*70)
+    print("MORDZIX AI - STARTED")
+    print("="*70)═════════════════════════════════
 # STARTUP & SHUTDOWN
 # ═══════════════════════════════════════════════════════════════════
 
