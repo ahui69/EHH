@@ -2,8 +2,7 @@
 <html lang="pl">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <meta name="theme-color" content="#0A0E17">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Mordzix AI</title>
     <style>
         * {
@@ -12,29 +11,14 @@
             box-sizing: border-box;
         }
 
-        :root {
-            --bg-primary: #0A0E17;
-            --bg-secondary: #141821;
-            --bg-tertiary: #1A1F2E;
-            --bg-user: #2563EB;
-            --bg-ai: #1A1F2E;
-            --text-primary: #E5E7EB;
-            --text-secondary: #9CA3AF;
-            --accent: #2563EB;
-            --accent-hover: #1D4ED8;
-            --border: #1F2937;
-            --sidebar-width: 260px;
-        }
-
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
-            background: var(--bg-primary);
-            color: var(--text-primary);
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: #0A0E17;
+            color: #E5E7EB;
             height: 100vh;
             overflow: hidden;
         }
 
-        /* Layout */
         .app-container {
             display: flex;
             height: 100vh;
@@ -42,409 +26,24 @@
 
         /* Sidebar */
         .sidebar {
-            width: var(--sidebar-width);
-            background: var(--bg-secondary);
-            border-right: 1px solid var(--border);
+            width: 280px;
+            background: #111827;
+            border-right: 1px solid #1F2937;
             display: flex;
             flex-direction: column;
             transform: translateX(-100%);
             transition: transform 0.3s ease;
             position: fixed;
+            left: 0;
+            top: 0;
             height: 100vh;
-            z-index: 100;
+            z-index: 1000;
         }
 
         .sidebar.open {
             transform: translateX(0);
         }
 
-        .sidebar-header {
-            padding: 1rem;
-            border-bottom: 1px solid var(--border);
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-        }
-
-        .sidebar-title {
-            font-size: 0.875rem;
-            font-weight: 600;
-            color: var(--text-secondary);
-        }
-
-        .close-sidebar {
-            background: none;
-            border: none;
-            color: var(--text-secondary);
-            cursor: pointer;
-            padding: 0.5rem;
-            font-size: 1.25rem;
-        }
-
-        .conversations-list {
-            flex: 1;
-            overflow-y: auto;
-            padding: 0.5rem;
-        }
-
-        .conversation-item {
-            padding: 0.75rem;
-            border-radius: 0.5rem;
-            cursor: pointer;
-            margin-bottom: 0.25rem;
-            transition: background 0.2s;
-        }
-
-        .conversation-item:hover {
-            background: var(--bg-tertiary);
-        }
-
-        .conversation-item.active {
-            background: var(--bg-tertiary);
-        }
-
-        .conversation-title {
-            font-size: 0.875rem;
-            color: var(--text-primary);
-            margin-bottom: 0.25rem;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
-        }
-
-        .conversation-time {
-            font-size: 0.75rem;
-            color: var(--text-secondary);
-        }
-
-        /* Main Chat */
-        .main-content {
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-            margin-left: 0;
-            transition: margin-left 0.3s ease;
-        }
-
-        .main-content.sidebar-open {
-            margin-left: var(--sidebar-width);
-        }
-
-        /* Header */
-        .header {
-            background: var(--bg-secondary);
-            padding: 1rem;
-            border-bottom: 1px solid var(--border);
-            display: flex;
-            align-items: center;
-            gap: 1rem;
-        }
-
-        .menu-btn {
-            background: none;
-            border: none;
-            color: var(--text-primary);
-            cursor: pointer;
-            padding: 0.5rem;
-            font-size: 1.25rem;
-            border-radius: 0.5rem;
-            transition: background 0.2s;
-        }
-
-        .menu-btn:hover {
-            background: var(--bg-tertiary);
-        }
-
-        .header-title {
-            font-size: 1.125rem;
-            font-weight: 600;
-        }
-
-        /* Chat Area */
-        .chat-area {
-            flex: 1;
-            overflow-y: auto;
-            padding: 2rem 1rem;
-            max-width: 800px;
-            margin: 0 auto;
-            width: 100%;
-        }
-
-        .chat-area::-webkit-scrollbar {
-            width: 6px;
-        }
-
-        .chat-area::-webkit-scrollbar-track {
-            background: var(--bg-primary);
-        }
-
-        .chat-area::-webkit-scrollbar-thumb {
-            background: var(--bg-tertiary);
-            border-radius: 3px;
-        }
-
-        /* Welcome (minimal) */
-        .welcome {
-            text-align: center;
-            padding: 4rem 2rem;
-            color: var(--text-secondary);
-        }
-
-        .welcome-icon {
-            font-size: 4rem;
-            margin-bottom: 1rem;
-            opacity: 0.3;
-        }
-
-        .welcome h2 {
-            font-size: 1.5rem;
-            color: var(--text-primary);
-            margin-bottom: 0.5rem;
-        }
-
-        /* Messages */
-        .message {
-            display: flex;
-            gap: 1rem;
-            margin-bottom: 2rem;
-            animation: slideIn 0.3s ease;
-        }
-
-        @keyframes slideIn {
-            from { opacity: 0; transform: translateY(10px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-
-        .message.user {
-            flex-direction: row-reverse;
-        }
-
-        .message-avatar {
-            width: 36px;
-            height: 36px;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 1.25rem;
-            flex-shrink: 0;
-        }
-
-        .message.ai .message-avatar {
-            background: linear-gradient(135deg, var(--accent), var(--accent-hover));
-        }
-
-        .message.user .message-avatar {
-            background: linear-gradient(135deg, #10B981, #059669);
-        }
-
-        .message-content {
-            max-width: 70%;
-        }
-
-        .message-bubble {
-            padding: 1rem 1.25rem;
-            border-radius: 1.25rem;
-            word-wrap: break-word;
-            line-height: 1.6;
-        }
-
-        .message.ai .message-bubble {
-            background: var(--bg-ai);
-            border: 1px solid var(--border);
-            color: var(--text-primary);
-            border-top-left-radius: 0.25rem;
-        }
-
-        .message.user .message-bubble {
-            background: var(--bg-user);
-            color: white;
-            border-top-right-radius: 0.25rem;
-        }
-
-        .message-meta {
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-            margin-top: 0.25rem;
-            font-size: 0.75rem;
-            color: var(--text-secondary);
-            padding: 0 0.5rem;
-        }
-
-        .message.user .message-meta {
-            justify-content: flex-end;
-        }
-
-        .copy-btn {
-            background: none;
-            border: none;
-            color: var(--text-secondary);
-            cursor: pointer;
-            padding: 0.25rem;
-            font-size: 1rem;
-        }
-
-        .copy-btn:hover {
-            color: var(--accent);
-        }
-
-        /* Typing Indicator */
-        .typing-indicator {
-            display: none;
-            align-items: center;
-            gap: 1rem;
-            margin-bottom: 2rem;
-        }
-
-        .typing-indicator.active {
-            display: flex;
-        }
-
-        .typing-dots {
-            display: flex;
-            gap: 0.25rem;
-            padding: 1rem 1.25rem;
-            background: var(--bg-ai);
-            border: 1px solid var(--border);
-            border-radius: 1.25rem;
-            border-top-left-radius: 0.25rem;
-        }
-
-        .typing-dot {
-            width: 8px;
-            height: 8px;
-            border-radius: 50%;
-            background: var(--text-secondary);
-            animation: typingDot 1.4s infinite;
-        }
-
-        .typing-dot:nth-child(2) { animation-delay: 0.2s; }
-        .typing-dot:nth-child(3) { animation-delay: 0.4s; }
-
-        @keyframes typingDot {
-            0%, 60%, 100% { transform: translateY(0); opacity: 0.7; }
-            30% { transform: translateY(-10px); opacity: 1; }
-        }
-
-        /* Input Area */
-        .input-area {
-            background: var(--bg-secondary);
-            border-top: 1px solid var(--border);
-            padding: 1rem;
-        }
-
-        .input-wrapper {
-            max-width: 800px;
-            margin: 0 auto;
-            display: flex;
-            gap: 0.75rem;
-            align-items: flex-end;
-            background: var(--bg-tertiary);
-            border-radius: 1.5rem;
-            padding: 0.75rem 1rem;
-            border: 2px solid transparent;
-            transition: border 0.2s;
-        }
-
-        .input-wrapper:focus-within {
-            border-color: var(--accent);
-        }
-
-        .input-field {
-            flex: 1;
-            background: none;
-            border: none;
-            color: var(--text-primary);
-            font-size: 1rem;
-            resize: none;
-            max-height: 150px;
-            min-height: 24px;
-            line-height: 1.5;
-            font-family: inherit;
-        }
-
-        .input-field:focus {
-            outline: none;
-        }
-
-        .input-field::placeholder {
-            color: var(--text-secondary);
-        }
-
-        .btn {
-            background: none;
-            border: none;
-            color: var(--text-secondary);
-            cursor: pointer;
-            padding: 0.5rem;
-            border-radius: 0.75rem;
-            transition: all 0.2s;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            width: 36px;
-            height: 36px;
-            font-size: 1.25rem;
-        }
-
-        .btn:hover:not(:disabled) {
-            color: var(--accent);
-            background: var(--bg-primary);
-        }
-
-        .btn:active:not(:disabled) {
-            transform: scale(0.95);
-        }
-
-        .btn:disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
-        }
-
-        .btn-primary {
-            background: var(--accent);
-            color: white;
-        }
-
-        .btn-primary:hover:not(:disabled) {
-            background: var(--accent-hover);
-        }
-
-        .btn.recording {
-            color: #EF4444;
-            animation: recordPulse 1s infinite;
-        }
-
-        @keyframes recordPulse {
-            0%, 100% { transform: scale(1); }
-            50% { transform: scale(1.1); }
-        }
-
-        #file-input {
-            display: none;
-        }
-
-        /* Mobile */
-        @media (max-width: 768px) {
-            .sidebar {
-                width: 80%;
-            }
-            
-            .main-content.sidebar-open {
-                margin-left: 0;
-            }
-            
-            .message-content {
-                max-width: 85%;
-            }
-            
-            .chat-area {
-                padding: 1rem 0.5rem;
-            }
-        }
-
-        /* Overlay when sidebar open on mobile */
         .sidebar-overlay {
             display: none;
             position: fixed;
@@ -453,11 +52,373 @@
             right: 0;
             bottom: 0;
             background: rgba(0, 0, 0, 0.5);
-            z-index: 99;
+            z-index: 999;
         }
 
         .sidebar-overlay.active {
             display: block;
+        }
+
+        .sidebar-header {
+            padding: 20px;
+            border-bottom: 1px solid #1F2937;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .sidebar-title {
+            font-size: 16px;
+            font-weight: 600;
+        }
+
+        .close-sidebar {
+            background: none;
+            border: none;
+            color: #9CA3AF;
+            font-size: 24px;
+            cursor: pointer;
+            padding: 0;
+            width: 32px;
+            height: 32px;
+        }
+
+        .conversations-list {
+            flex: 1;
+            overflow-y: auto;
+            padding: 10px;
+        }
+
+        .conversation-item {
+            padding: 12px;
+            margin-bottom: 8px;
+            background: #1F2937;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .conversation-item:hover {
+            background: #374151;
+        }
+
+        .conversation-item.active {
+            background: #2563EB;
+        }
+
+        .conversation-title {
+            font-size: 14px;
+            margin-bottom: 4px;
+        }
+
+        .conversation-time {
+            font-size: 12px;
+            color: #9CA3AF;
+        }
+
+        /* Main Content */
+        .main-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            max-width: 100%;
+        }
+
+        /* Header */
+        .header {
+            background: #111827;
+            border-bottom: 1px solid #1F2937;
+            padding: 16px 24px;
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .menu-btn {
+            background: none;
+            border: none;
+            color: #E5E7EB;
+            font-size: 24px;
+            cursor: pointer;
+            padding: 8px;
+            border-radius: 8px;
+            transition: background 0.2s;
+        }
+
+        .menu-btn:hover {
+            background: #1F2937;
+        }
+
+        .header-title {
+            font-size: 20px;
+            font-weight: 600;
+        }
+
+        /* Chat Area */
+        .chat-area {
+            flex: 1;
+            overflow-y: auto;
+            padding: 24px;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .welcome {
+            text-align: center;
+            padding: 60px 20px;
+            max-width: 600px;
+            margin: auto;
+        }
+
+        .welcome-icon {
+            font-size: 64px;
+            margin-bottom: 24px;
+        }
+
+        .welcome h2 {
+            font-size: 32px;
+            margin-bottom: 16px;
+        }
+
+        .welcome p {
+            font-size: 18px;
+            color: #9CA3AF;
+        }
+
+        /* Messages */
+        .message {
+            display: flex;
+            gap: 12px;
+            max-width: 800px;
+            animation: fadeIn 0.3s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .message.user {
+            margin-left: auto;
+            flex-direction: row-reverse;
+        }
+
+        .message-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+            flex-shrink: 0;
+        }
+
+        .message.user .message-avatar {
+            background: #2563EB;
+        }
+
+        .message.ai .message-avatar {
+            background: #10B981;
+        }
+
+        .message-content {
+            flex: 1;
+        }
+
+        .message-bubble {
+            background: #1F2937;
+            padding: 12px 16px;
+            border-radius: 16px;
+            line-height: 1.5;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+
+        .message.user .message-bubble {
+            background: #2563EB;
+        }
+
+        .message-meta {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-top: 4px;
+            font-size: 12px;
+            color: #6B7280;
+            padding: 0 4px;
+        }
+
+        .copy-btn {
+            background: none;
+            border: none;
+            color: #6B7280;
+            cursor: pointer;
+            font-size: 14px;
+            padding: 4px;
+            border-radius: 4px;
+            transition: background 0.2s;
+        }
+
+        .copy-btn:hover {
+            background: #374151;
+        }
+
+        /* Typing Indicator */
+        .typing-indicator {
+            display: none;
+            gap: 12px;
+            max-width: 800px;
+        }
+
+        .typing-indicator.active {
+            display: flex;
+        }
+
+        .typing-dots {
+            background: #1F2937;
+            padding: 12px 16px;
+            border-radius: 16px;
+            display: flex;
+            gap: 6px;
+        }
+
+        .typing-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #6B7280;
+            animation: typing 1.4s infinite;
+        }
+
+        .typing-dot:nth-child(2) { animation-delay: 0.2s; }
+        .typing-dot:nth-child(3) { animation-delay: 0.4s; }
+
+        @keyframes typing {
+            0%, 60%, 100% { transform: translateY(0); }
+            30% { transform: translateY(-10px); }
+        }
+
+        /* Input Area */
+        .input-area {
+            background: #111827;
+            border-top: 1px solid #1F2937;
+            padding: 20px 24px;
+        }
+
+        .input-wrapper {
+            max-width: 1000px;
+            margin: 0 auto;
+            display: flex;
+            align-items: flex-end;
+            gap: 12px;
+            background: #1F2937;
+            border-radius: 24px;
+            padding: 8px;
+        }
+
+        .btn {
+            background: none;
+            border: none;
+            color: #9CA3AF;
+            font-size: 20px;
+            cursor: pointer;
+            padding: 10px;
+            border-radius: 12px;
+            transition: all 0.2s;
+            flex-shrink: 0;
+        }
+
+        .btn:hover {
+            background: #374151;
+            color: #E5E7EB;
+        }
+
+        .btn.recording {
+            color: #EF4444;
+            animation: pulse 1s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .btn-primary {
+            background: #2563EB;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #1D4ED8;
+        }
+
+        .input-field {
+            flex: 1;
+            background: none;
+            border: none;
+            color: #E5E7EB;
+            font-size: 16px;
+            resize: none;
+            outline: none;
+            padding: 10px;
+            max-height: 120px;
+            min-height: 24px;
+            line-height: 1.5;
+        }
+
+        #file-input {
+            display: none;
+        }
+
+        .file-preview {
+            display: none;
+            padding: 8px 12px;
+            background: #374151;
+            border-radius: 8px;
+            font-size: 14px;
+            color: #9CA3AF;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .file-preview.active {
+            display: flex;
+        }
+
+        .file-preview-name {
+            flex: 1;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .file-preview-remove {
+            background: none;
+            border: none;
+            color: #EF4444;
+            cursor: pointer;
+            font-size: 16px;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .sidebar {
+                width: 100%;
+            }
+
+            .header {
+                padding: 12px 16px;
+            }
+
+            .chat-area {
+                padding: 16px;
+            }
+
+            .input-area {
+                padding: 12px 16px;
+            }
         }
     </style>
 </head>
@@ -470,7 +431,6 @@
                 <button class="close-sidebar" onclick="toggleSidebar()">✕</button>
             </div>
             <div class="conversations-list" id="conversations-list">
-                <!-- Historia rozmów (placeholder) -->
                 <div class="conversation-item active">
                     <div class="conversation-title">Nowa rozmowa</div>
                     <div class="conversation-time">Teraz</div>
@@ -511,6 +471,10 @@
 
             <!-- Input Area -->
             <footer class="input-area">
+                <div class="file-preview" id="file-preview">
+                    <span class="file-preview-name" id="file-preview-name"></span>
+                    <button class="file-preview-remove" onclick="removeAttachment()">✕</button>
+                </div>
                 <div class="input-wrapper">
                     <button class="btn" id="mic-btn" title="Nagraj głos" aria-label="Nagraj głos">
                         🎤
@@ -528,6 +492,8 @@
                         placeholder="Napisz wiadomość..."
                         rows="1"
                         aria-label="Wiadomość"
+                        onkeydown="handleKeyPress(event)"
+                        oninput="autoResize(this)"
                     ></textarea>
 
                     <button class="btn btn-primary" id="send-btn" title="Wyślij" aria-label="Wyślij" onclick="sendMessage()">
@@ -540,55 +506,32 @@
 
     <script>
         // State
-        let conversationId = generateId();
+        let conversationId = 'conv_' + Date.now();
+        let currentAttachment = null;
         let isRecording = false;
         let mediaRecorder = null;
         let audioChunks = [];
-        let currentAttachment = null;
 
-        // Generate ID
-        function generateId() {
-            return Date.now().toString(36) + Math.random().toString(36).substr(2);
+        // Auto-resize textarea
+        function autoResize(textarea) {
+            textarea.style.height = 'auto';
+            textarea.style.height = textarea.scrollHeight + 'px';
         }
 
-        // Toggle Sidebar
-        function toggleSidebar() {
-            const sidebar = document.getElementById('sidebar');
-            const overlay = document.getElementById('sidebar-overlay');
-            const mainContent = document.getElementById('main-content');
-            
-            sidebar.classList.toggle('open');
-            overlay.classList.toggle('active');
-            
-            if (window.innerWidth > 768) {
-                mainContent.classList.toggle('sidebar-open');
+        // Handle Enter key
+        function handleKeyPress(event) {
+            if (event.key === 'Enter' && !event.shiftKey) {
+                event.preventDefault();
+                sendMessage();
             }
         }
 
-        // Setup
-        document.addEventListener('DOMContentLoaded', () => {
-            setupTextarea();
-            setupKeyboardShortcuts();
-        });
-
-        // Auto-resize textarea
-        function setupTextarea() {
-            const textarea = document.getElementById('message-input');
-            textarea.addEventListener('input', () => {
-                textarea.style.height = 'auto';
-                textarea.style.height = textarea.scrollHeight + 'px';
-            });
-        }
-
-        // Keyboard shortcuts
-        function setupKeyboardShortcuts() {
-            const textarea = document.getElementById('message-input');
-            textarea.addEventListener('keydown', (e) => {
-                if (e.key === 'Enter' && !e.shiftKey) {
-                    e.preventDefault();
-                    sendMessage();
-                }
-            });
+        // Toggle sidebar
+        function toggleSidebar() {
+            const sidebar = document.getElementById('sidebar');
+            const overlay = document.getElementById('sidebar-overlay');
+            sidebar.classList.toggle('open');
+            overlay.classList.toggle('active');
         }
 
         // Send message
@@ -602,7 +545,9 @@
             document.getElementById('welcome-message').style.display = 'none';
 
             // Add user message
-            addMessage('user', message);
+            if (message) {
+                addMessage('user', message);
+            }
 
             // Clear input
             input.value = '';
@@ -612,24 +557,58 @@
             showTypingIndicator();
 
             try {
-                const response = await fetch('/api/chat/assistant', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        messages: [{ role: 'user', content: message }],
-                        conversation_id: conversationId,
-                        use_memory: true,
-                        use_research: true,
-                        internet_allowed: true,
-                        auto_learn: true
-                    })
-                });
+                let response;
+                
+                if (currentAttachment) {
+                    // Upload file first
+                    const formData = new FormData();
+                    formData.append('file', currentAttachment);
+                    
+                    const uploadResponse = await fetch('/api/files/upload', {
+                        method: 'POST',
+                        body: formData
+                    });
+                    
+                    const uploadData = await uploadResponse.json();
+                    
+                    if (uploadData.ok) {
+                        // Send message with file reference
+                        response = await fetch('/api/chat/assistant', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                message: message || 'Przeanalizuj załączony plik',
+                                messages: [{ role: 'user', content: message || 'Przeanalizuj załączony plik' }],
+                                conversation_id: conversationId,
+                                file_id: uploadData.file_id,
+                                use_memory: true
+                            })
+                        });
+                    }
+                    
+                    removeAttachment();
+                } else {
+                    // Regular text message
+                    response = await fetch('/api/chat/assistant', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            message: message,
+                            messages: [{ role: 'user', content: message }],
+                            conversation_id: conversationId,
+                            use_memory: true,
+                            auto_learn: true
+                        })
+                    });
+                }
 
                 const data = await response.json();
                 hideTypingIndicator();
 
-                if (data.ok && data.answer) {
+                if (data.answer) {
                     addMessage('ai', data.answer);
+                } else if (data.ok && data.text) {
+                    addMessage('ai', data.text);
                 } else {
                     addMessage('ai', 'Przepraszam, wystąpił błąd. Spróbuj ponownie.');
                 }
@@ -727,6 +706,7 @@
                     mediaRecorder.start();
                     isRecording = true;
                     micBtn.classList.add('recording');
+                    micBtn.textContent = '⏹️';
                 } catch (error) {
                     console.error('Microphone error:', error);
                     alert('Nie można uzyskać dostępu do mikrofonu.');
@@ -735,6 +715,7 @@
                 mediaRecorder.stop();
                 isRecording = false;
                 micBtn.classList.remove('recording');
+                micBtn.textContent = '🎤';
             }
         }
 
@@ -743,17 +724,25 @@
             formData.append('file', audioBlob, 'recording.webm');
             
             try {
-                const response = await fetch('/api/stt/transcribe', {
+                // Try Whisper endpoint first
+                let response = await fetch('/api/stt/transcribe', {
                     method: 'POST',
                     body: formData
                 });
                 
+                if (!response.ok) {
+                    // Fallback: just display that we got audio
+                    document.getElementById('message-input').value = '[Nagrano audio - transkrypcja niedostępna]';
+                    return;
+                }
+                
                 const data = await response.json();
-                if (data.ok && data.text) {
+                if (data.text) {
                     document.getElementById('message-input').value = data.text;
                 }
             } catch (error) {
                 console.error('Transcription error:', error);
+                document.getElementById('message-input').value = '[Nagrano audio]';
             }
         }
 
@@ -763,8 +752,24 @@
             if (!file) return;
             
             currentAttachment = file;
-            // TODO: Show preview
+            
+            // Show preview
+            const preview = document.getElementById('file-preview');
+            const nameEl = document.getElementById('file-preview-name');
+            nameEl.textContent = file.name;
+            preview.classList.add('active');
         }
+
+        function removeAttachment() {
+            currentAttachment = null;
+            document.getElementById('file-input').value = '';
+            document.getElementById('file-preview').classList.remove('active');
+        }
+
+        // Focus input on load
+        window.addEventListener('load', () => {
+            document.getElementById('message-input').focus();
+        });
     </script>
 </body>
 </html>
