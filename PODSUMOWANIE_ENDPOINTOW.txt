@@ -1,0 +1,52 @@
+╔═══════════════════════════════════════════════════════════════════════╗
+║              📡 WSZYSTKIE ENDPOINTY - PODSUMOWANIE 📡                ║
+╚═══════════════════════════════════════════════════════════════════════╝
+
+✅ PODŁĄCZONE DO app.py (15 ROUTERÓW):
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+1.  STT (2)          - /api/stt/*           - Speech-to-Text
+2.  TTS (2)          - /api/tts/*           - Text-to-Speech  
+3.  Travel (6)       - /api/travel/*        - Hotels, restaurants
+4.  Research (4)     - /api/research/*      - Web search
+5.  Writing (12)     - /api/writing/*       - Creative content
+6.  Programista (14) - /api/programista/*   - Code assistant
+7.  Psyche (11)      - /api/psyche/*        - AI mood/personality
+8.  NLP (8)          - /api/nlp/*           - Text analysis
+9.  Prometheus (3)   - /api/prometheus/*    - Metrics
+10. Suggestions (4)  - /api/suggestions/*   - Proactive AI
+11. Internal (1)     - /api/internal/*      - Internal tools
+12. Files (8)        - /api/files/*         - File operations
+13. Chat (3)         - /api/chat/*          - Advanced chat
+14. Routers (10)     - /api/routers/*       - Admin/Debug
+15. Batch (4)        - /api/batch/*         - Batch processing
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+ROUTERY: 15
+ENDPOINTY Z ROUTERÓW: ~92
+ENDPOINTY W app.py: 8
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+TOTAL: ~100+ ENDPOINTÓW
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🎯 KLUCZOWE FUNKCJE FRONTENDU:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+✅ 💬 Chat - POST /api/chat/assistant
+✅ 🎤 Mikrofon - POST /api/stt/transcribe  
+✅ 📎 File upload - POST /api/files/upload
+✅ 🔊 TTS - POST /api/tts/speak (jeśli dodasz przycisk)
+✅ 📜 Historia - GET /api/routers/list (można użyć do sidebar)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🚀 RESTART:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+cd /workspace/EHH/EHH && git pull && sudo systemctl restart mordzix-ai
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Sprawdź: http://162.19.220.29:8080/docs

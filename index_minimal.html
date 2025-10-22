@@ -431,10 +431,7 @@
                 <button class="close-sidebar" onclick="toggleSidebar()">✕</button>
             </div>
             <div class="conversations-list" id="conversations-list">
-                <div class="conversation-item active">
-                    <div class="conversation-title">Nowa rozmowa</div>
-                    <div class="conversation-time">Teraz</div>
-                </div>
+                <!-- Historia rozmów ładowana dynamicznie -->
             </div>
         </aside>
 
@@ -472,6 +469,7 @@
             <!-- Input Area -->
             <footer class="input-area">
                 <div class="file-preview" id="file-preview">
+                    <img class="file-preview-img" id="file-preview-img" style="display: none;">
                     <span class="file-preview-name" id="file-preview-name"></span>
                     <button class="file-preview-remove" onclick="removeAttachment()">✕</button>
                 </div>
@@ -547,6 +545,13 @@
             // Add user message
             if (message) {
                 addMessage('user', message);
+                
+                // Save to history on first message
+                const chatArea = document.getElementById('chat-area');
+                const messageCount = chatArea.querySelectorAll('.message').length;
+                if (messageCount === 1) {
+                    saveConversationToHistory(message);
+                }
             }
 
             // Clear input
@@ -652,6 +657,13 @@
                 copyBtn.title = 'Kopiuj';
                 copyBtn.onclick = () => copyToClipboard(text);
                 meta.appendChild(copyBtn);
+                
+                const ttsBtn = document.createElement('button');
+                ttsBtn.className = 'tts-btn';
+                ttsBtn.textContent = '🔊';
+                ttsBtn.title = 'Czytaj na głos';
+                ttsBtn.onclick = () => speakText(text, ttsBtn);
+                meta.appendChild(ttsBtn);
             }
             
             content.appendChild(bubble);
@@ -756,7 +768,22 @@
             // Show preview
             const preview = document.getElementById('file-preview');
             const nameEl = document.getElementById('file-preview-name');
+            const imgEl = document.getElementById('file-preview-img');
+            
             nameEl.textContent = file.name;
+            
+            // Show image thumbnail if it's an image
+            if (file.type.startsWith('image/')) {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    imgEl.src = e.target.result;
+                    imgEl.style.display = 'block';
+                };
+                reader.readAsDataURL(file);
+            } else {
+                imgEl.style.display = 'none';
+            }
+            
             preview.classList.add('active');
         }
 
@@ -764,11 +791,124 @@
             currentAttachment = null;
             document.getElementById('file-input').value = '';
             document.getElementById('file-preview').classList.remove('active');
+            document.getElementById('file-preview-img').style.display = 'none';
+        }
+
+        // TTS (Text-to-Speech)
+        let currentUtterance = null;
+
+        async function speakText(text, button) {
+            // Try API first
+            try {
+                const response = await fetch('/api/tts/speak', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ text: text })
+                });
+                
+                if (response.ok) {
+                    const audioBlob = await response.blob();
+                    const audioUrl = URL.createObjectURL(audioBlob);
+                    const audio = new Audio(audioUrl);
+                    
+                    button.classList.add('playing');
+                    audio.onended = () => {
+                        button.classList.remove('playing');
+                        URL.revokeObjectURL(audioUrl);
+                    };
+                    
+                    audio.play();
+                    return;
+                }
+            } catch (error) {
+                console.log('TTS API error, using browser fallback:', error);
+            }
+            
+            // Fallback: Browser Web Speech API
+            if ('speechSynthesis' in window) {
+                // Stop previous
+                if (currentUtterance) {
+                    speechSynthesis.cancel();
+                }
+                
+                currentUtterance = new SpeechSynthesisUtterance(text);
+                currentUtterance.lang = 'pl-PL';
+                currentUtterance.rate = 1.0;
+                
+                button.classList.add('playing');
+                currentUtterance.onend = () => {
+                    button.classList.remove('playing');
+                    currentUtterance = null;
+                };
+                
+                speechSynthesis.speak(currentUtterance);
+            } else {
+                alert('TTS niedostępne w tej przeglądarce');
+            }
+        }
+
+        // Load conversation history
+        function loadConversationHistory() {
+            const listEl = document.getElementById('conversations-list');
+            const saved = localStorage.getItem('mordzix_conversations');
+            
+            if (saved) {
+                try {
+                    const conversations = JSON.parse(saved);
+                    if (conversations.length > 0) {
+                        listEl.innerHTML = '';
+                        conversations.forEach((conv, idx) => {
+                            const item = document.createElement('div');
+                            item.className = 'conversation-item' + (idx === 0 ? ' active' : '');
+                            item.innerHTML = `
+                                <div class="conversation-title">${conv.title || 'Rozmowa ' + (idx + 1)}</div>
+                                <div class="conversation-time">${new Date(conv.timestamp).toLocaleDateString('pl-PL')}</div>
+                            `;
+                            item.onclick = () => loadConversation(conv.id);
+                            listEl.appendChild(item);
+                        });
+                        return;
+                    }
+                } catch (e) {
+                    console.error('Error loading history:', e);
+                }
+            }
+            
+            // Empty state
+            listEl.innerHTML = '<div style="padding: 20px; text-align: center; color: #6B7280;">Brak historii</div>';
+        }
+
+        function loadConversation(id) {
+            // TODO: Implement conversation loading
+            console.log('Load conversation:', id);
+        }
+
+        function saveConversationToHistory(firstMessage) {
+            try {
+                const saved = localStorage.getItem('mordzix_conversations');
+                let conversations = saved ? JSON.parse(saved) : [];
+                
+                // Add new conversation
+                conversations.unshift({
+                    id: conversationId,
+                    title: firstMessage.substring(0, 50),
+                    timestamp: Date.now()
+                });
+                
+                // Keep only last 20
+                conversations = conversations.slice(0, 20);
+                
+                localStorage.setItem('mordzix_conversations', JSON.stringify(conversations));
+                loadConversationHistory();
+            } catch (e) {
+                console.error('Error saving history:', e);
+            }
         }
 
         // Focus input on load
         window.addEventListener('load', () => {
             document.getElementById('message-input').focus();
+            loadConversationHistory();
         });
     </script>
 </body>

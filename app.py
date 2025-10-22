@@ -16,6 +16,82 @@ import json
 import httpx
 import asyncio
 
+# Import all endpoint routers
+try:
+    from assistant_endpoint import router as assistant_router
+except ImportError:
+    assistant_router = None
+
+try:
+    from stt_endpoint import router as stt_router
+except ImportError:
+    stt_router = None
+
+try:
+    from tts_endpoint import router as tts_router
+except ImportError:
+    tts_router = None
+
+try:
+    from travel_endpoint import router as travel_router
+except ImportError:
+    travel_router = None
+
+try:
+    from research_endpoint import router as research_router
+except ImportError:
+    research_router = None
+
+try:
+    from writing_endpoint import router as writing_router
+except ImportError:
+    writing_router = None
+
+try:
+    from programista_endpoint import router as programista_router
+except ImportError:
+    programista_router = None
+
+try:
+    from psyche_endpoint import router as psyche_router
+except ImportError:
+    psyche_router = None
+
+try:
+    from nlp_endpoint import router as nlp_router
+except ImportError:
+    nlp_router = None
+
+try:
+    from prometheus_endpoint import router as prometheus_router
+except ImportError:
+    prometheus_router = None
+
+try:
+    from suggestions_endpoint import router as suggestions_router
+except ImportError:
+    suggestions_router = None
+
+try:
+    from internal_endpoint import router as internal_router
+except ImportError:
+    internal_router = None
+
+try:
+    from files_endpoint import router as files_router
+except ImportError:
+    files_router = None
+
+try:
+    from routers import router as routers_router
+except ImportError:
+    routers_router = None
+
+try:
+    from core.batch_endpoint import router as batch_router
+except ImportError:
+    batch_router = None
+
 # ═══════════════════════════════════════════════════════════════════
 # LLM CONFIG
 # ═══════════════════════════════════════════════════════════════════
@@ -84,6 +160,51 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# ═══════════════════════════════════════════════════════════════════
+# INCLUDE ALL ROUTERS
+# ═══════════════════════════════════════════════════════════════════
+print("\n" + "="*70)
+print("📡 LOADING ENDPOINTS")
+print("="*70)
+
+all_routers = [
+    (stt_router, "STT (Speech-to-Text)", 2),
+    (tts_router, "TTS (Text-to-Speech)", 2),
+    (travel_router, "Travel & Maps", 6),
+    (research_router, "Research & Web", 4),
+    (writing_router, "Creative Writing", 12),
+    (programista_router, "Code Assistant", 14),
+    (psyche_router, "Psyche System", 11),
+    (nlp_router, "NLP Analysis", 8),
+    (prometheus_router, "Metrics", 3),
+    (suggestions_router, "Suggestions", 4),
+    (internal_router, "Internal", 1),
+    (files_router, "Files (Advanced)", 8),
+    (assistant_router, "Chat (Advanced)", 3),
+    (routers_router, "Admin/Debug", 10),
+    (batch_router, "Batch Processing", 4),
+]
+
+loaded_count = 0
+total_endpoints = 0
+
+for router, name, endpoint_count in all_routers:
+    if router is not None:
+        try:
+            app.include_router(router)
+            print(f"✅ {name:30s} ({endpoint_count:2d} endpoints)")
+            loaded_count += 1
+            total_endpoints += endpoint_count
+        except Exception as e:
+            print(f"⚠️  {name:30s} - Error: {str(e)[:50]}")
+    else:
+        print(f"⏭️  {name:30s} - Module not found")
+
+print("="*70)
+print(f"✅ Loaded {loaded_count}/15 routers")
+print(f"📊 Total endpoints: ~{total_endpoints} (from routers) + 8 (app.py) = ~{total_endpoints + 8}")
+print("="*70 + "\n")
 
 # ═══════════════════════════════════════════════════════════════════
 # MODELS

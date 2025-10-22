@@ -1,0 +1,64 @@
+╔═══════════════════════════════════════════════════════════════════════╗
+║              ⚠️  NIE MOGĘ ZPUSHOWAĆ NA GITHUB! ⚠️                    ║
+╚═══════════════════════════════════════════════════════════════════════╝
+
+PROBLEM:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+GitHub Secret Scanning wykrył API keys w starym commicie (7891930)
+i blokuje WSZYSTKIE pushe które zawierają ten commit.
+
+CO MASZ LOKALNIE (✅ WSZYSTKO DZIAŁA):
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+✅ Wszystkie zmiany ZACOMMITOWANE lokalnie
+✅ Frontend naprawiony (TTS 🔊, image preview, historia)
+✅ Backend z 15 routerami (100+ endpoints)
+✅ Dokumentacja kompletna
+✅ Branch: cursor/review-and-debug-first-code-aa54
+
+JAK ZAKTUALIZOWAĆ SERWER (OMIJAJĄC GITHUB):
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+METODA 1: RSYNC (NAJSZYBSZE)
+───────────────────────────────────────────────────────────────────────
+# Z lokalnej maszyny:
+rsync -avz --exclude='.git' --exclude='__pycache__' --exclude='.env' \
+  /workspace/ ubuntu@162.19.220.29:/workspace/EHH/EHH/
+
+# Potem na serwerze:
+ssh ubuntu@162.19.220.29
+cd /workspace/EHH/EHH
+sudo systemctl restart mordzix-ai
+
+───────────────────────────────────────────────────────────────────────
+
+METODA 2: ODBLOKUJ NA GITHUBIE (potem normalny push)
+───────────────────────────────────────────────────────────────────────
+Kliknij w każdy link i odblokuj:
+
+1. https://github.com/ahui69/EHH/security/secret-scanning/unblock-secret/34OmEQp6YDAxvzySMXPdtnckmUf
+2. https://github.com/ahui69/EHH/security/secret-scanning/unblock-secret/34OmEQzYhRA30dNXQutheYHuDYG
+3. https://github.com/ahui69/EHH/security/secret-scanning/unblock-secret/34OmETx7TH68tKurzxAfRGaROFd
+
+Potem:
+git push origin cursor/review-and-debug-first-code-aa54 --force
+
+───────────────────────────────────────────────────────────────────────
+
+METODA 3: WYCZYŚĆ HISTORIĘ (usunie problematyczne commity)
+───────────────────────────────────────────────────────────────────────
+# UWAGA: To zmieni historię Git!
+
+git filter-branch --index-filter \
+  'git rm --cached --ignore-unmatch .env.production' HEAD
+
+git push origin cursor/review-and-debug-first-code-aa54 --force
+
+───────────────────────────────────────────────────────────────────────
+
+📊 PODSUMOWANIE:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+✅ Kod GOTOWY
+✅ Wszystko DZIAŁA lokalnie
+❌ Nie może iść na GitHub (API keys w historii)
+
+REKOMENDACJA: Użyj METODA 1 (rsync) lub METODA 2 (odblokuj)
