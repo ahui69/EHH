@@ -640,7 +640,7 @@ async def startup_event():
     
     print("\n" + "="*70)
     print("MORDZIX AI - STARTED")
-    print("="*70)═════════════════════════════════
+    print("="*70)
 # STARTUP & SHUTDOWN
 # ═══════════════════════════════════════════════════════════════════
 
