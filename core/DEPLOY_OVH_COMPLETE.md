@@ -227,7 +227,7 @@ sqlite3 mem.db "SELECT name FROM sqlite_master WHERE type='table';"
 cat > /workspace/mrd/.env << 'EOF'
 # Mordzix AI - Production Configuration
 AUTH_TOKEN=ssjjMijaja6969
-WORKSPACE=/workspace/mrd
+WORKSPACE=/workspace/EHH/EHH/mrd
 MEM_DB=/workspace/mrd/mem.db
 UPLOAD_DIR=/workspace/mrd/out/uploads
 

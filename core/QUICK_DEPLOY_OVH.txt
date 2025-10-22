@@ -60,7 +60,7 @@ EOF
 # 6. Utwórz .env
 cat > .env << 'ENVEOF'
 AUTH_TOKEN=ssjjMijaja6969
-WORKSPACE=/workspace/mrd
+WORKSPACE=/workspace/EHH/EHH/mrd
 MEM_DB=/workspace/mrd/mem.db
 UPLOAD_DIR=/workspace/mrd/out/uploads
 LLM_BASE_URL=https://api.deepinfra.com/v1/openai

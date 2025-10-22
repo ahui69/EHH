@@ -173,7 +173,7 @@ OPENTRIPMAP_KEY=your_key_here
 STABILITY_API_KEY=your_key_here
 
 # Paths
-WORKSPACE=/workspace/mrd
+WORKSPACE=/workspace/EHH/EHH/mrd
 MEM_DB=/workspace/mrd/mem.db
 ```
 
