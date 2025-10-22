@@ -1,0 +1,112 @@
+╔═══════════════════════════════════════════════════════════════════════╗
+║           ✅ WSZYSTKIE ŚCIEŻKI ZAKTUALIZOWANE! ✅                     ║
+╚═══════════════════════════════════════════════════════════════════════╝
+
+🔄 ZMIANA:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+STARA ŚCIEŻKA:     /var/www/mordzix-ai
+NOWA ŚCIEŻKA:      /workspace/EHH/EHH
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📁 NOWA STRUKTURA NA SERWERZE:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+/workspace/EHH/EHH/
+├── app.py                      # FastAPI (307 linii)
+├── index_minimal.html          # Frontend
+├── .env                        # Konfiguracja
+├── .venv/                      # Virtual environment
+├── uploads/                    # Przesłane pliki
+├── mem.db                      # Baza pamięci
+├── core/                       # Moduły
+└── ...
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🔧 .env - ZMIENNE:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+WORKSPACE=/workspace/EHH/EHH
+MEM_DB=/workspace/EHH/EHH/mem.db
+UPLOAD_DIR=/workspace/EHH/EHH/uploads
+
+LLM_API_KEY=twoj_klucz_tutaj
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🚀 JAK URUCHOMIĆ:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+# 1. SSH
+ssh ubuntu@vps-a3f42e4f
+
+# 2. Przygotuj katalog
+mkdir -p /workspace/EHH
+cd /workspace/EHH
+
+# 3. Pobierz i uruchom deploy
+wget https://raw.githubusercontent.com/ahui69/EHH/cursor/review-and-debug-first-code-aa54/deploy_ovh.sh
+chmod +x deploy_ovh.sh
+./deploy_ovh.sh
+
+# 4. Edytuj .env
+nano /workspace/EHH/EHH/.env
+# Ustaw: LLM_API_KEY=twoj_klucz
+
+# 5. Restart
+systemctl restart mordzix-ai
+
+# 6. Otwórz
+http://IP_SERWERA
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🛠️  ZARZĄDZANIE:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+# Status
+systemctl status mordzix-ai
+
+# Restart
+systemctl restart mordzix-ai
+
+# Logi
+journalctl -u mordzix-ai -f
+
+# Edytuj config
+nano /workspace/EHH/EHH/.env
+
+# Aktualizuj
+cd /workspace/EHH/EHH
+git pull
+systemctl restart mordzix-ai
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📦 PLIKI ZAKTUALIZOWANE (10):
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+✅ deploy_ovh.sh               # Auto-deploy script
+✅ DEPLOYMENT_OVH.md           # Pełny guide
+✅ QUICK_DEPLOY_OVH.md         # Quick start
+✅ README_OVH.txt              # Ściąga
+✅ .env.example                # Szablon
+✅ QUICK_START.md
+✅ README.md
+✅ README_AUTO.md
+✅ core/DEPLOY_OVH_COMPLETE.md
+✅ core/QUICK_DEPLOY_OVH.txt
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+✅ WSZYSTKO GOTOWE!
+
+GitHub: https://github.com/ahui69/EHH
+Branch: cursor/review-and-debug-first-code-aa54
+Commit: 89cb4ec
+
+DEPLOYED TO: /workspace/EHH/EHH/
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
