@@ -307,16 +307,10 @@ class AdvancedCognitiveEngine:
                 "analyzed_intent": "general_query",
                 "tokens": user_message.split(),
                 "sentiment": "neutral",
-                "entities": [],
-                "context_aware": False
-            }
-    
-    async def _enhanced_memory_search(
-        self, 
-        user_message: str, 
-        user_id: str,
-        inner_thought
-    ) -> Tuple[List[Dict[str, Any]], Dict[str, Any]]:
+                "entities": [        # Standardowe wyszukiwanie w p        # Standardowe wyszukiwanie w pamięci
+        # FIX: search_hybrid nie istnieje, użyj ltm_search_hybrid
+        from .memory import ltm_search_hybrid
+        memory_results = ltm_search_hybrid(user_message, limit=10), Dict[str, Any]]:
         """Rozszerzone wyszukiwanie w pamięci z kompresją wiedzy"""
         
         # Standardowe wyszukiwanie w pamięci
