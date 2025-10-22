@@ -8,14 +8,29 @@ Pozwala na wydajne wykonywanie wielu zapytań LLM jednocześnie.
 from fastapi import APIRouter, Depends, HTTPException, Body, Request
 from typing import List, Dict, Any, Optional
 import asyncio
-import time
+impfrom core.auth import auth_dependency
 
-from core.auth import auth_dependency
-from batch_processing import (
-    process_batch, 
-    call_llm_batch, 
-    get_batch_metrics, 
-    shutdown_batch_processor
+# Fallback batch processing functions
+try:
+    from batch_processing import (
+        process_batch, 
+        call_llm_batch, 
+        get_batch_metrics, 
+        shutdown_batch_processor
+    )
+except ImportError:
+    # Dummy implementations
+    async def process_batch(tasks, max_workers=4):
+        return {"results": [], "total": 0}
+    
+    async def call_llm_batch(messages_list, params_list=None):
+        return []
+    
+    def get_batch_metrics():
+        return {"total_batches": 0, "avg_time": 0}
+    
+    def shutdown_batch_processor():
+        passbatch_processor
 )
 
 # Utwórz router
