@@ -43,45 +43,54 @@ async def chat(body: ChatRequest, req: Request):
         kw = ['wyszukaj', 'znajdź', 'sprawdź', 'google', 'internet', 'necie', 'aktualne', 'dzisiaj', 'data', 'pogoda', 'co nowego']
         
         if any(k in last_msg.lower() for k in kw):
-            log_info("[CHAT] 🔍 RESEARCH przez API endpoint!")
+            log_info("[CHAT] 🔍 DIRECT SERPAPI CALL!")
             try:
-                # Użyj endpoint zamiast bezpośredniego call (problem z event loop)
                 import httpx
-                async with httpx.AsyncClient(timeout=30.0) as client:
-                    response = await client.post(
-                        "http://localhost:8080/api/research/autonauka",
-                        json={
-                            "query": last_msg,
-                            "top_k": 5,
-                            "deep_research": True,
-                            "user_id": body.user_id
-                        },
-                        headers={"Authorization": "Bearer ssjjMijaja6969"}
+                import os
+                
+                serpapi_key = os.getenv('SERPAPI_KEY', '1ad52e9d1bf86ae9bbc32c3782b1ddf1cecc5f274fefa70429519a950bcfd2eb')
+                
+                # Bezpośrednie wywołanie SERPAPI
+                async with httpx.AsyncClient(timeout=15.0) as client:
+                    response = await client.get(
+                        "https://serpapi.com/search.json",
+                        params={
+                            "q": last_msg,
+                            "api_key": serpapi_key,
+                            "num": 5
+                        }
                     )
-                    res = response.json()
+                    serpapi_data = response.json()
                 
-                log_info(f"[CHAT] Research API response: {res.keys() if isinstance(res,dict) else type(res)}")
+                log_info(f"[CHAT] SERPAPI response keys: {list(serpapi_data.keys())[:10]}")
                 
-                if isinstance(res, dict):
-                    ctx = res.get('context', '')
-                    srcs = res.get('sources', [])
+                # Parse results
+                organic = serpapi_data.get('organic_results', [])
+                answer_box = serpapi_data.get('answer_box', {})
+                
+                log_info(f"[CHAT] Organic results: {len(organic)}, Answer box: {bool(answer_box)}")
+                
+                if organic or answer_box:
+                    web = "\n\n━━━ AKTUALNE DANE Z INTERNETU (SERPAPI/GOOGLE) ━━━\n"
                     
-                    log_info(f"[CHAT] Context: {len(ctx)} chars, Sources: {len(srcs) if srcs else 0}")
+                    # Answer box (np. data, pogoda)
+                    if answer_box:
+                        web += f"\n📌 {answer_box.get('title', '')}\n"
+                        web += f"{answer_box.get('answer', answer_box.get('snippet', ''))}\n\n"
                     
-                    if ctx:
-                        web = f"\n\n━━━ AKTUALNE DANE Z INTERNETU (SERPAPI) ━━━\n{ctx[:1000]}\n"
+                    # Organic results
+                    web += "\nWyniki wyszukiwania:\n"
+                    for idx, r in enumerate(organic[:5], 1):
+                        web += f"{idx}. {r.get('title', 'Brak tytułu')}\n"
+                        web += f"   {r.get('snippet', '')[:200]}\n"
+                        web += f"   [{r.get('link', '')}]\n\n"
                     
-                    if srcs and len(srcs) > 0:
-                        web += "\n\nŹródła:\n"
-                        for s in srcs[:5]:
-                            web += f"- {s.get('title','')}\n  {s.get('snippet','')[:150]}\n  [{s.get('link','')}]\n"
+                    log_info(f"[CHAT] ✅ SERPAPI OK! {len(web)} chars danych")
+                else:
+                    log_info("[CHAT] ⚠️ SERPAPI zwrócił 0 wyników")
                     
-                    if web:
-                        log_info(f"[CHAT] ✅ Research OK! {len(web)} chars")
-                    else:
-                        log_info("[CHAT] ⚠️ Puste dane")
             except Exception as e:
-                log_info(f"[CHAT] ❌ Research API error: {e}")
+                log_info(f"[CHAT] ❌ SERPAPI error: {e}")
         
         # MEMORY
         mem = ""
