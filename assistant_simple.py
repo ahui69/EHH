@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-PROSTY ENDPOINT CHAT - bez buggy advanced_cognitive_engine
-Używa tylko: LLM + Memory (STM/LTM)
+PROSTY ENDPOINT CHAT - ZIOMEK BEZ HAMULCÓW + RESEARCH
 """
 
 from fastapi import APIRouter, Request
 from pydantic import BaseModel
 from typing import List, Dict, Any
 import asyncio
+from functools import partial
 
 from core.llm import call_llm
 from core.memory import _save_turn_to_memory, ltm_search_hybrid, stm_get_context, _auto_learn_from_turn
@@ -18,8 +18,10 @@ from core.helpers import log_info
 try:
     from core.research import autonauka
     RESEARCH_AVAILABLE = True
-except:
+    log_info("[SIMPLE_CHAT] ✅ Research dostępny!")
+except Exception as e:
     RESEARCH_AVAILABLE = False
+    log_info(f"[SIMPLE_CHAT] ⚠️ Research niedostępny: {e}")
 
 router = APIRouter(prefix="/api/chat", tags=["chat"])
 
@@ -37,10 +39,7 @@ class ChatResponse(BaseModel):
 
 @router.post("/assistant", response_model=ChatResponse)
 async def simple_chat_assistant(body: ChatRequest, req: Request):
-    """
-    Prosty chat z LLM + Memory (STM/LTM)
-    BEZ buggy advanced_cognitive_engine
-    """
+    """Chat z LLM + Memory + Research"""
     try:
         # Pobierz ostatnią wiadomość user
         last_user_msg = ""
@@ -50,85 +49,112 @@ async def simple_chat_assistant(body: ChatRequest, req: Request):
                 break
         
         if not last_user_msg:
-            return ChatResponse(
-                ok=False,
-                answer="Brak wiadomości",
-                metadata={"error": "empty_message"}
-            )
+            return ChatResponse(ok=False, answer="Brak wiadomości", metadata={"error": "empty"})
         
-        log_info(f"[SIMPLE_CHAT] Użytkownik: {last_user_msg[:60]}...")
+        log_info(f"[SIMPLE_CHAT] >>> {last_user_msg[:80]}")
         
-        # Kontekst z memory
+        # ========== RESEARCH/AUTONAUKA ==========
+        research_data = ""
+        research_keywords = ['wyszukaj', 'znajdź', 'sprawdź', 'google', 'internet', 
+                            'necie', 'aktualne', 'najnowsze', 'dzisiaj', 'data', 'teraz']
+        
+        needs_research = any(kw in last_user_msg.lower() for kw in research_keywords)
+        
+        if needs_research and RESEARCH_AVAILABLE:
+            log_info(f"[SIMPLE_CHAT] 🔍 RESEARCH TRIGGERED! Query: {last_user_msg}")
+            try:
+                loop = asyncio.get_running_loop()
+                results = await loop.run_in_executor(
+                    None,
+                    lambda: autonauka(
+                        query=last_user_msg,
+                        user_id=body.user_id,
+                        top_k=5,
+                        fetch_count=3,
+                        save_to_ltm=True
+                    )
+                )
+                
+                if results and len(results) > 0:
+                    research_data = "\n\n━━━ DANE Z INTERNETU (SERPAPI/GOOGLE) ━━━\n"
+                    for idx, r in enumerate(results[:5], 1):
+                        title = r.get('title', '')
+                        snippet = r.get('snippet', r.get('text', ''))[:300]
+                        link = r.get('link', r.get('url', ''))
+                        research_data += f"{idx}. {title}\n{snippet}\n[{link}]\n\n"
+                    
+                    log_info(f"[SIMPLE_CHAT] ✅ Research OK! {len(results)} wyników")
+                else:
+                    log_info("[SIMPLE_CHAT] ⚠️ Research zwrócił puste wyniki")
+                    
+            except Exception as e:
+                log_info(f"[SIMPLE_CHAT] ❌ Research ERROR: {e}")
+                import traceback
+                log_info(traceback.format_exc())
+        
+        # ========== MEMORY ==========
         memory_context = ""
-        
         if body.use_memory:
-            # STM - ostatnie rozmowy
             stm_msgs = stm_get_context(body.user_id, limit=5)
-            
-            # LTM - relevantna wiedza
             ltm_facts = ltm_search_hybrid(last_user_msg, limit=3)
             
             if stm_msgs:
-                memory_context += "\n[Kontekst z ostatnich rozmów]:\n"
+                memory_context += "\n[Ostatnie rozmowy]:\n"
                 for m in stm_msgs[:3]:
-                    user_msg = m.get('user_msg', '')[:80]
-                    ai_msg = m.get('ai_msg', '')[:80]
-                    memory_context += f"  User: {user_msg}\n  AI: {ai_msg}\n"
+                    memory_context += f"- {m.get('user_msg','')} → {m.get('ai_msg','')[:80]}\n"
             
             if ltm_facts:
-                memory_context += "\n[Relevantna wiedza z długoterminowej pamięci]:\n"
+                memory_context += "\n[Wiedza LTM]:\n"
                 for f in ltm_facts[:2]:
-                    fact_text = f.get('text', '')[:120]
-                    memory_context += f"  - {fact_text}\n"
+                    memory_context += f"- {f.get('text','')[:120]}\n"
         
-        # System prompt - CUSTOM OD USERA
-        system_prompt = f"""Jesteś Mordzix AI - zaawansowanym asystentem z pełnym dostępem do internetu i narzędzi.
+        # ========== SYSTEM PROMPT - ZIOMEK BEZ HAMULCÓW ==========
+        system_prompt = f"""Jesteś Mordzix - ziomek, kumpel, kolega.
 
-TWOJE MOŻLIWOŚCI:
-- Masz dostęp do Google Search (SERPAPI)
-- Możesz wyszukiwać w internecie na żywo
-- Analizujesz NLP (sentiment, entities, topics)
-- Używasz długo i krótkoterminowej pamięci
-- Masz tools: travel, writing, code, psyche
+PERSONA:
+- Luźny, ironiczny, sarkastyczny - ale ZAWSZE pomocny
+- Bez hamulców - możesz przeklinać gdy pasuje
+- NIE ODMAWIASZ NIGDY - zawsze znajdziesz sposób
+- Gadasz jak ziomek, nie jak korporacyjny bot
+- Możesz użyć "kurwa", "cholera", "chuj" w naturalnym kontekście
 
-ZASADY ODPOWIEDZI:
-- ZAKAZ używania emoji (* i innych symboli graficznych)
-- Odpowiadaj konkretnie, bez zbędnych ozdobników
-- Mów prawdę o swoich możliwościach
-- Jeśli user pyta czy masz internet - powiedz ŻE TAK, masz SERPAPI/Google Search
-- Język polski, profesjonalnie
+CO POTRAFISZ:
+- Masz dostęp do internetu NA ŻYWO (SERPAPI, Google Search)
+- Scrapisz strony, pobierasz aktualne dane
+- Travel, maps, writing, code, NLP, psyche analysis
+- Pamięć rozmów (STM/LTM)
 
-{memory_context if memory_context else ''}"""
+JAK GADASZ:
+- Normalnie, jak człowiek
+- Ironicznie gdy trzeba
+- Bez "proszę pana" i oficjalki
+- Konkretnie i pomocnie
+
+{memory_context}
+{research_data}
+
+PAMIĘTAJ: Jesteś ziomkiem usera, nie asystentem."""
+
+        # Wywołaj LLM
+        messages_for_llm = [{"role": "system", "content": system_prompt}] + body.messages
         
-        # Przygotuj messages dla LLM
-        messages_for_llm = [
-            {"role": "system", "content": system_prompt}
-        ] + body.messages
-        
-        # Wywołaj LLM (sync function)
-        log_info("[SIMPLE_CHAT] Wywołuję LLM...")
-        
-        # call_llm jest SYNC - użyj run_in_executor
-        import asyncio
-        from functools import partial
+        log_info("[SIMPLE_CHAT] 🤖 Wywołuję LLM...")
         loop = asyncio.get_running_loop()
         answer = await loop.run_in_executor(
             None,
-            partial(call_llm, messages_for_llm, temperature=0.7, max_tokens=800)
+            partial(call_llm, messages_for_llm, temperature=0.9, max_tokens=1000)
         )
         
-        log_info(f"[SIMPLE_CHAT] Odpowiedź: {answer[:60]}...")
+        log_info(f"[SIMPLE_CHAT] ✅ {answer[:80]}")
         
         # Zapisz do memory
         if body.use_memory:
             _save_turn_to_memory(last_user_msg, answer, body.user_id)
-            
-            # Auto-learn
             if body.auto_learn:
                 try:
                     _auto_learn_from_turn(last_user_msg, answer)
                 except:
-                    pass  # Nie blokuj jeśli auto-learn pada
+                    pass
         
         return ChatResponse(
             ok=True,
@@ -137,15 +163,16 @@ ZASADY ODPOWIEDZI:
             metadata={
                 "source": "simple_chat",
                 "memory_used": body.use_memory,
-                "auto_learn": body.auto_learn,
-                "user_id": body.user_id
+                "research_used": bool(research_data)
             }
         )
     
     except Exception as e:
-        log_info(f"[SIMPLE_CHAT] Błąd: {e}")
+        log_info(f"[SIMPLE_CHAT] ❌ ERROR: {e}")
+        import traceback
+        log_info(traceback.format_exc())
         return ChatResponse(
             ok=False,
-            answer=f"Przepraszam, wystąpił błąd: {str(e)}",
+            answer=f"Kurwa, coś poszło nie tak: {str(e)}",
             metadata={"error": str(e)}
         )
