@@ -17,10 +17,11 @@ import httpx
 import asyncio
 
 # Import all endpoint routers
+# Prefer the core assistant router (with auth)
 try:
-    from assistant_simple import router as simple_chat_router
+    from core.assistant_endpoint import router as core_chat_router
 except ImportError:
-    simple_chat_router = None
+    core_chat_router = None
 
 try:
     from stt_endpoint import router as stt_router
@@ -86,6 +87,12 @@ try:
     from routers import router as routers_router
 except ImportError:
     routers_router = None
+
+# Admin endpoints (cache, stats)
+try:
+    from admin_endpoint import router as admin_router
+except ImportError:
+    admin_router = None
 
 try:
     from core.batch_endpoint import router as batch_router
@@ -169,6 +176,7 @@ print("📡 LOADING ENDPOINTS")
 print("="*70)
 
 all_routers = [
+    (core_chat_router, "Chat (Core)", 3),
     (stt_router, "STT (Speech-to-Text)", 2),
     (tts_router, "TTS (Text-to-Speech)", 2),
     (travel_router, "Travel & Maps", 6),
@@ -179,10 +187,10 @@ all_routers = [
     (nlp_router, "NLP Analysis", 8),
     (prometheus_router, "Metrics", 3),
     (suggestions_router, "Suggestions", 4),
-    (internal_router, "Internal", 1),
+    (internal_router, "Internal", 2),
     (files_router, "Files (Advanced)", 8),
-    (simple_chat_router, "Chat (Advanced)", 3),
-    (routers_router, "Admin/Debug", 10),
+    (admin_router, "Admin", 4),
+    (routers_router, "Routers/Debug", 10),
     (batch_router, "Batch Processing", 4),
 ]
 
@@ -202,7 +210,7 @@ for router, name, endpoint_count in all_routers:
         print(f"⏭️  {name:30s} - Module not found")
 
 print("="*70)
-print(f"✅ Loaded {loaded_count}/15 routers")
+print(f"✅ Loaded {loaded_count}/{len(all_routers)} routers")
 print(f"📊 Total endpoints: ~{total_endpoints} (from routers) + 8 (app.py) = ~{total_endpoints + 8}")
 print("="*70 + "\n")
 
@@ -251,20 +259,26 @@ def health():
     }
 
 # ═══════════════════════════════════════════════════════════════════
-# CHAT ENDPOINTS - USUNIĘTE! Używamy simple_chat_router z cognitive_engine + memory
+# BASIC STATUS
 # ═══════════════════════════════════════════════════════════════════
-    """Get automation summary for startup display"""
+@app.get("/api")
+@app.get("/status")
+def api_status():
     return {
-        "fast_path": {
-            "count": 15,
-            "handlers": ["travel", "weather", "time", "math", "status"]
+        "ok": True,
+        "app": "Mordzix AI",
+        "version": "5.0.0",
+        "endpoints": {
+            "chat": "/api/chat/assistant",
+            "chat_stream": "/api/chat/assistant/stream",
+            "psyche": "/api/psyche/status",
+            "travel": "/api/travel/search",
+            "code": "/api/code/exec",
+            "files": "/api/files/upload",
+            "admin": "/api/admin/cache/stats",
+            "tts": "/api/tts/speak",
+            "stt": "/api/stt/transcribe",
         },
-        "tools": {
-            "count": 25,
-            "categories": ["web", "travel", "writing", "code", "research", "graphics", "audio"]
-        },
-        "manual": {"count": 5},
-        "totals": {"automatic": 40}
     }
 
 @app.get("/api/automation/summary")
@@ -345,38 +359,4 @@ if __name__ == "__main__":
 # Endpointy /api/chat/assistant i /api/chat są obsługiwane przez assistant_endpoint.py
 # który używa cognitive_engine z pełną pamięcią (STM/LTM) i kontekstem!
 
-# ═══════════════════════════════════════════════════════════════════
-# FILE UPLOAD
-# ═══════════════════════════════════════════════════════════════════
-UPLOAD_DIR = "/workspace/mrd/uploads"
-os.makedirs(UPLOAD_DIR, exist_ok=True)
-
-@app.post("/api/files/upload")
-async def upload_file(file: UploadFile = File(...)):
-    """Upload file"""
-    try:
-        import uuid
-        fid = f"{int(time.time())}_{uuid.uuid4().hex}_{file.filename}"
-        path = os.path.join(UPLOAD_DIR, fid)
-        
-        content = await file.read()
-        with open(path, "wb") as f:
-            f.write(content)
-        
-        return {
-            "ok": True,
-            "file_id": fid,
-            "filename": file.filename,
-            "size": len(content),
-            "url": f"/api/files/{fid}"
-        }
-    except Exception as e:
-        return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
-
-@app.get("/api/files/{file_id}")
-async def get_file(file_id: str):
-    """Download file"""
-    path = os.path.join(UPLOAD_DIR, file_id)
-    if not os.path.isfile(path):
-        return JSONResponse({"ok": False, "error": "File not found"}, status_code=404)
-    return FileResponse(path)
+# Note: pliki obsługuje `files_endpoint.py` (z autoryzacją)
