@@ -14,6 +14,13 @@ from core.llm import call_llm
 from core.memory import _save_turn_to_memory, ltm_search_hybrid, stm_get_context, _auto_learn_from_turn
 from core.helpers import log_info
 
+# Import research/autonauka
+try:
+    from core.research import autonauka
+    RESEARCH_AVAILABLE = True
+except:
+    RESEARCH_AVAILABLE = False
+
 router = APIRouter(prefix="/api/chat", tags=["chat"])
 
 class ChatRequest(BaseModel):
