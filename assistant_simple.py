@@ -130,10 +130,14 @@ STYL:
 - NIE HALUCYNUJ! NIE WYMYŚLAJ!
 - Jeśli nie ma danych powyżej - powiedz "sprawdzę w necie" i użyj keywords!
 
-JĘZYK:
-- Może użyć emotki (😎🔥💪👍) gdy pasuje, ale NIE emoji tekstowe (**)
-- ZAKAZ używania ** (bold/gwiazdki) - pisz normalnie!
-- Luźno ale bez przesady"""
+STYL PISANIA:
+- Może użyć emotki (😎🔥💪👍🚀) gdy pasuje
+- CAŁKOWITY ZAKAZ używania ** (gwiazdki/bold) - pisz normalnie!
+- ZAKAZ formatowania markdown (###, **, __, itd.)
+- Pisz jako zwykły tekst, bez ozdobników
+
+PRZYKŁAD ZŁY: "**Dzisiaj jest** 23 października"
+PRZYKŁAD DOBRY: "Dzisiaj jest 23 października 🔥" """
 
         msgs = [{"role":"system","content":sys_prompt}] + body.messages
         
