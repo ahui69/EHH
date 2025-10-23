@@ -905,10 +905,45 @@
             }
         }
 
+        // Save/Load messages from localStorage
+        function saveMessages() {
+            try {
+                const chatArea = document.getElementById('chat-area');
+                const messages = [];
+                chatArea.querySelectorAll('.message').forEach(msg => {
+                    messages.push({
+                        role: msg.classList.contains('user') ? 'user' : 'ai',
+                        text: msg.querySelector('.message-bubble').textContent
+                    });
+                });
+                localStorage.setItem('mordzix_current_chat', JSON.stringify(messages));
+            } catch (e) {
+                console.error('Save messages error:', e);
+            }
+        }
+
+        function loadMessages() {
+            try {
+                const saved = localStorage.getItem('mordzix_current_chat');
+                if (saved) {
+                    const messages = JSON.parse(saved);
+                    if (messages.length > 0) {
+                        document.getElementById('welcome-message').style.display = 'none';
+                        messages.forEach(msg => {
+                            addMessage(msg.role, msg.text, false); // false = don't save again
+                        });
+                    }
+                }
+            } catch (e) {
+                console.error('Load messages error:', e);
+            }
+        }
+
         // Focus input on load
         window.addEventListener('load', () => {
             document.getElementById('message-input').focus();
             loadConversationHistory();
+            loadMessages(); // Load chat messages on refresh
         });
     </script>
 </body>
