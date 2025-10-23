@@ -149,7 +149,7 @@ PRZYKŁAD DOBRY: "Dzisiaj jest 23 października 🔥" """
         if body.use_memory:
             _save_turn_to_memory(last_msg, ans, body.user_id)
         
-        return ChatResponse(ok=True, answer=ans, metadata={"research": bool(web)})
+        return ChatResponse(ok=True, answer=ans, metadata={"research": bool(web), "memory_used": body.use_memory})
     
     except Exception as e:
         log_info(f"[CHAT] ERROR: {e}")
