@@ -40,21 +40,48 @@ async def chat(body: ChatRequest, req: Request):
         
         # RESEARCH
         web = ""
-        kw = ['wyszukaj', 'znajdź', 'sprawdź', 'google', 'internet', 'necie', 'aktualne', 'dzisiaj', 'data', 'pogoda']
+        kw = ['wyszukaj', 'znajdź', 'sprawdź', 'google', 'internet', 'necie', 'aktualne', 'dzisiaj', 'data', 'pogoda', 'co nowego']
         
-        if any(k in last_msg.lower() for k in kw) and RESEARCH_OK:
-            log_info("[CHAT] 🔍 RESEARCH!")
+        if any(k in last_msg.lower() for k in kw):
+            log_info("[CHAT] 🔍 RESEARCH przez API endpoint!")
             try:
-                res = await autonauka(q=last_msg, topk=5)
-                log_info(f"[CHAT] Res type: {type(res)}, keys: {res.keys() if isinstance(res,dict) else 'N/A'}")
+                # Użyj endpoint zamiast bezpośredniego call (problem z event loop)
+                import httpx
+                async with httpx.AsyncClient(timeout=30.0) as client:
+                    response = await client.post(
+                        "http://localhost:8080/api/research/autonauka",
+                        json={
+                            "query": last_msg,
+                            "top_k": 5,
+                            "deep_research": True,
+                            "user_id": body.user_id
+                        },
+                        headers={"Authorization": "Bearer ssjjMijaja6969"}
+                    )
+                    res = response.json()
                 
-                if isinstance(res, dict) and 'context' in res:
-                    web = f"\n\n━━━ INTERNET (SERPAPI) ━━━\n{res['context'][:800]}\n"
-                    if 'sources' in res:
-                        web += "\nŹródła:\n" + "\n".join([f"- {s.get('title','')} [{s.get('link','')}]" for s in (res['sources'] or [])[:3]])
-                    log_info(f"[CHAT] ✅ Research OK!")
+                log_info(f"[CHAT] Research API response: {res.keys() if isinstance(res,dict) else type(res)}")
+                
+                if isinstance(res, dict):
+                    ctx = res.get('context', '')
+                    srcs = res.get('sources', [])
+                    
+                    log_info(f"[CHAT] Context: {len(ctx)} chars, Sources: {len(srcs) if srcs else 0}")
+                    
+                    if ctx:
+                        web = f"\n\n━━━ AKTUALNE DANE Z INTERNETU (SERPAPI) ━━━\n{ctx[:1000]}\n"
+                    
+                    if srcs and len(srcs) > 0:
+                        web += "\n\nŹródła:\n"
+                        for s in srcs[:5]:
+                            web += f"- {s.get('title','')}\n  {s.get('snippet','')[:150]}\n  [{s.get('link','')}]\n"
+                    
+                    if web:
+                        log_info(f"[CHAT] ✅ Research OK! {len(web)} chars")
+                    else:
+                        log_info("[CHAT] ⚠️ Puste dane")
             except Exception as e:
-                log_info(f"[CHAT] ❌ Research: {e}")
+                log_info(f"[CHAT] ❌ Research API error: {e}")
         
         # MEMORY
         mem = ""
@@ -63,26 +90,32 @@ async def chat(body: ChatRequest, req: Request):
             if stm:
                 mem = "\n[Poprzednie]:\n" + "\n".join([f"- {m.get('user_msg','')[:50]}" for m in stm])
         
-        # PROMPT
-        sys_prompt = f"""Mordzix - ziomek usera.
+        # PROMPT - ZIOMEK BEZ HAMULCÓW
+        sys_prompt = f"""Mordzix - ziomek usera, kolega.
 
 PERSONA:
-- Luźny, sarkastyczny, ironiczny  
-- BEZ hamulców - możesz: kurwa, cholera, chuj
-- ZAWSZE pomocny, NIE odmawiasz
-- BEZ EMOJI! (zakaz)
+- Luźny, sarkastyczny, ironiczny, bezczelny
+- BEZ hamulców - możesz: kurwa, cholera, chuj, pierdolić
+- ZAWSZE pomocny, NIE odmawiasz NIGDY
+- BEZ EMOJI! (całkowity zakaz)
 
 MOŻLIWOŚCI:
-- Internet NA ŻYWO (SERPAPI, Google Search)
-- NLP, travel, code, writing - wszystko
-- Pamięć rozmów
+- Internet NA ŻYWO przez SERPAPI/Google Search
+- Scrapisz dane, analizujesz, znajdziesz wszystko
+- NLP, travel, code, writing, psyche - wszystkie tools
+- Pamięć rozmów (STM/LTM)
 
 STYL:
-- Jak ziomek, nie bot
+- Jak ziomek do ziomka, nie jak asystent
+- Ironicznie gdy trzeba
 - Konkretnie, bez pierdolenia
+- Używaj danych z researchu jeśli są!
+
 {mem}{web}"""
 
         msgs = [{"role":"system","content":sys_prompt}] + body.messages
+        
+        log_info(f"[CHAT] System prompt len: {len(sys_prompt)}, research data: {bool(web)}")
         
         loop = asyncio.get_running_loop()
         ans = await loop.run_in_executor(None, partial(call_llm, msgs, temperature=0.9, max_tokens=1000))
@@ -94,4 +127,6 @@ STYL:
     
     except Exception as e:
         log_info(f"[CHAT] ERROR: {e}")
-        return ChatResponse(ok=False, answer=f"Błąd: {e}")
+        import traceback
+        log_info(traceback.format_exc())
+        return ChatResponse(ok=False, answer=f"Kurwa, błąd: {e}")
