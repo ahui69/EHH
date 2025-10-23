@@ -413,9 +413,34 @@
 
         /* Responsive */
         @media (max-width: 768px) {
-            .sidebar {
-                width: 100%;
+            body {
+                height: 100vh;
+                height: 100dvh;
             }
+            
+            .chat-area {
+                padding-bottom: 180px !important;
+            }
+            
+            .input-area {
+                padding: 16px !important;
+            }
+            
+            #message-input {
+                font-size: 16px !important;
+                min-height: 44px;
+            }
+            
+            .btn {
+                min-width: 44px;
+                min-height: 44px;
+                font-size: 18px;
+            }
+            
+            .input-wrapper {
+                gap: 8px;
+            }
+        }
 
             .header {
                 padding: 12px 16px;
@@ -437,6 +462,30 @@
                 height: 100vh;
                 height: 100dvh;
             }
+            
+            .chat-area {
+                padding-bottom: 180px !important;
+            }
+            
+            .input-area {
+                padding: 16px !important;
+            }
+            
+            #message-input {
+                font-size: 16px !important;
+                min-height: 44px;
+            }
+            
+            .btn {
+                min-width: 44px;
+                min-height: 44px;
+                font-size: 18px;
+            }
+            
+            .input-wrapper {
+                gap: 8px;
+            }
+        }
             
             .chat-area {
                 padding-bottom: 140px !important;
@@ -919,8 +968,24 @@
         }
 
         function loadConversation(id) {
-            // TODO: Implement conversation loading
-            console.log('Load conversation:', id);
+            try {
+                const saved = localStorage.getItem('mordzix_conv_' + id);
+                if (saved) {
+                    const messages = JSON.parse(saved);
+                    // Clear current chat
+                    document.getElementById('chat-area').innerHTML = '';
+                    // Load messages
+                    messages.forEach(msg => {
+                        addMessage(msg.text, msg.role === 'user');
+                    });
+                    conversationId = id;
+                    console.log('Loaded conversation:', id);
+                } else {
+                    console.log('No saved conversation found:', id);
+                }
+            } catch (e) {
+                console.error('Error loading conversation:', e);
+            }
         }
 
         function saveConversationToHistory(firstMessage) {
@@ -959,13 +1024,18 @@
                 chatArea.querySelectorAll('.message').forEach(msg => {
                     const bubble = msg.querySelector('.message-bubble');
                     if (bubble) {
+                        const text = bubble.textContent || bubble.innerText;
                         messages.push({
                             role: msg.classList.contains('user') ? 'user' : 'ai',
-                            text: bubble.textContent
+                            text: text
                         });
                     }
                 });
+                // Save to current conversation
+                localStorage.setItem('mordzix_conv_' + conversationId, JSON.stringify(messages));
+                // Also save as current chat
                 localStorage.setItem('mordzix_current_chat', JSON.stringify(messages));
+                console.log('Messages saved:', messages.length);
             } catch (e) {
                 console.error('Save messages error:', e);
             }
