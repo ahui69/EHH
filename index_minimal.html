@@ -15,8 +15,17 @@
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
             background: #0a0a0a;
             color: #E5E7EB;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            width: 100%;
             height: 100vh;
+            height: 100dvh;
             overflow: hidden;
+            -webkit-text-size-adjust: 100%;
+            touch-action: manipulation;
         }
 
         .app-container {
@@ -418,6 +427,34 @@
 
             .input-area {
                 padding: 12px 16px;
+            }
+        }
+
+        
+        /* iPhone 15 Pro & Mobile fixes */
+        @media (max-width: 768px) {
+            body {
+                height: 100vh;
+                height: 100dvh;
+            }
+            
+            .chat-area {
+                padding-bottom: 140px !important;
+            }
+            
+            #message-input {
+                font-size: 16px !important;
+                min-height: 44px;
+            }
+            
+            .btn {
+                min-width: 44px;
+                min-height: 44px;
+                font-size: 18px;
+            }
+            
+            .input-wrapper {
+                gap: 8px;
             }
         }
     </style>
@@ -953,6 +990,50 @@
             loadMessages();
             loadConversationHistory();
         });
+
+        // EVENT LISTENERS - WSZYSTKIE PRZYCISKI
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('Initializing...');
+            
+            // Mic button
+            const micBtn = document.getElementById('mic-btn');
+            if (micBtn) {
+                micBtn.addEventListener('click', toggleRecording);
+                console.log('Mic button listener added');
+            }
+            
+            // Attach button
+            const attachBtn = document.getElementById('attach-btn');
+            if (attachBtn) {
+                attachBtn.addEventListener('click', function() {
+                    document.getElementById('file-input').click();
+                });
+                console.log('Attach button listener added');
+            }
+            
+            // Send button
+            const sendBtn = document.getElementById('send-btn');
+            if (sendBtn) {
+                sendBtn.addEventListener('click', sendMessage);
+                console.log('Send button listener added');
+            }
+            
+            // Message input - Enter to send
+            const msgInput = document.getElementById('message-input');
+            if (msgInput) {
+                msgInput.addEventListener('keydown', function(e) {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault();
+                        sendMessage();
+                    }
+                });
+            }
+            
+            // Load messages
+            loadMessages();
+            loadConversationHistory();
+        });
+
     </script>
 </body>
 </html>
