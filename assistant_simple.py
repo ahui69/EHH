@@ -40,7 +40,9 @@ async def chat(body: ChatRequest, req: Request):
         
         # RESEARCH
         web = ""
-        kw = ['wyszukaj', 'znajdź', 'sprawdź', 'google', 'internet', 'necie', 'aktualne', 'dzisiaj', 'data', 'pogoda', 'co nowego']
+        kw = ['wyszukaj', 'znajdź', 'sprawdź', 'google', 'internet', 'necie', 'aktualne', 
+              'dzisiaj', 'wczoraj', 'data', 'pogoda', 'co nowego', 'kto wygrał', 'mecz', 
+              'wynik', 'najnowsze', 'teraz', 'live', 'aktualnie']
         
         if any(k in last_msg.lower() for k in kw):
             log_info("[CHAT] 🔍 DIRECT SERPAPI CALL!")
