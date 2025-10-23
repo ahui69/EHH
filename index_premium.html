@@ -1,0 +1,292 @@
+<!doctype html>
+<html lang="pl">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Mordzix AI — Premium</title>
+  <style>
+    :root {
+      --bg: #0a0e17;
+      --panel: #0f1422;
+      --card: #111a2a;
+      --muted: #9aa4b2;
+      --text: #e6eef6;
+      --accent: #48b6ff;
+      --accent-2: #2aa6e6;
+      --border: rgba(255,255,255,0.08);
+      --radius: 14px;
+      --safe: 12px; /* ~3mm wizualnie */
+      --maxw: 1120px;
+      --shadow: 0 10px 40px rgba(0,0,0,0.45);
+    }
+    *, *::before, *::after { box-sizing: border-box; }
+    html, body { height: 100%; margin: 0; background: linear-gradient(180deg, #070c15, #060b12); color: var(--text); font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; }
+    body { padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left); }
+
+    /* Frame: header (fixed), messages (scrollable), composer (fixed) */
+    .frame { position: fixed; inset: var(--safe); display: grid; grid-template-rows: auto 1fr auto; gap: 10px; max-width: var(--maxw); margin: 0 auto; left: 50%; transform: translateX(-50%); width: calc(100% - var(--safe)*2); }
+
+    .header { height: 60px; display: flex; align-items: center; gap: 12px; padding: 10px 14px; background: linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0.015)); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); }
+    .brand { display: flex; align-items: center; gap: 12px; font-weight: 600; }
+    .logo { width: 36px; height: 36px; border-radius: 10px; background: linear-gradient(135deg, var(--accent), var(--accent-2)); display: grid; place-items: center; box-shadow: inset 0 0 18px rgba(0,0,0,0.25); }
+    .title-wrap { display: flex; flex-direction: column; }
+    .title { font-size: 16px; }
+    .subtitle { font-size: 12px; color: var(--muted); }
+    .spacer { flex: 1; }
+    .status { display: inline-flex; align-items: center; gap: 8px; padding: 6px 10px; background: var(--card); border: 1px solid var(--border); border-radius: 999px; font-size: 12px; color: var(--muted); }
+    .dot { width: 8px; height: 8px; border-radius: 50%; background: #4ade80; box-shadow: 0 0 10px #4ade80; }
+
+    .messages-wrap { position: relative; overflow: hidden; border-radius: var(--radius); border: 1px solid var(--border); background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01)); box-shadow: var(--shadow); }
+    .messages { height: 100%; overflow: auto; padding: 14px; display: flex; flex-direction: column; gap: 10px; scroll-behavior: smooth; }
+
+    .row { display: flex; gap: 10px; align-items: flex-end; }
+    .row.user { justify-content: flex-end; }
+    .row.ai { justify-content: flex-start; }
+
+    .avatar { width: 34px; height: 34px; border-radius: 10px; background: var(--panel); border: 1px solid var(--border); display: grid; place-items: center; flex: 0 0 auto; }
+    .avatar.ai { background: linear-gradient(135deg, #0f1a2c, #0b1422); }
+    .avatar.user { background: linear-gradient(135deg, var(--accent), var(--accent-2)); }
+
+    .bubble { max-width: min(78%, 760px); padding: 12px 14px; border-radius: 14px; border: 1px solid var(--border); background: var(--card); color: var(--text); position: relative; }
+    .row.user .bubble { background: linear-gradient(180deg, rgba(72,182,255,0.18), rgba(72,182,255,0.10)); border-color: rgba(72,182,255,0.35); }
+    .meta { margin-top: 6px; font-size: 11px; color: var(--muted); display: flex; gap: 10px; }
+
+    .msg-actions { position: absolute; top: 8px; right: 8px; display: flex; gap: 8px; opacity: 0; transition: opacity .15s ease; }
+    .bubble:hover .msg-actions { opacity: 1; }
+    .icon-btn { width: 28px; height: 28px; display: grid; place-items: center; border-radius: 8px; border: 1px solid var(--border); background: rgba(255,255,255,0.03); color: var(--muted); cursor: pointer; }
+    .icon-btn:hover { background: rgba(255,255,255,0.06); color: var(--text); }
+
+    .typing { display: inline-flex; gap: 6px; padding: 10px 12px; }
+    .dot-t { width: 6px; height: 6px; border-radius: 999px; background: var(--muted); opacity: .6; animation: t 1.2s ease-in-out infinite; }
+    .dot-t:nth-child(2){ animation-delay: .2s; }
+    .dot-t:nth-child(3){ animation-delay: .4s; }
+    @keyframes t { 0%,60%,100%{ transform: translateY(0); opacity:.6 } 30%{ transform: translateY(-4px); opacity: 1 } }
+
+    .composer { display: grid; grid-template-columns: auto 1fr auto; gap: 10px; align-items: end; padding: 10px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--panel); box-shadow: var(--shadow); }
+    .toolbox { display: inline-flex; gap: 8px; }
+    .btn { height: 40px; min-width: 40px; border-radius: 10px; border: 1px solid var(--border); background: rgba(255,255,255,0.03); display: grid; place-items: center; color: var(--text); cursor: pointer; }
+    .btn:hover { background: rgba(255,255,255,0.06); }
+    .btn.primary { background: linear-gradient(180deg, var(--accent), var(--accent-2)); border: none; color: #051522; font-weight: 600; padding: 0 14px; }
+
+    .input-wrap { position: relative; }
+    textarea { width: 100%; min-height: 40px; max-height: 140px; resize: none; background: transparent; border: 1px solid var(--border); border-radius: 10px; color: var(--text); padding: 10px 12px 10px 12px; font: inherit; outline: none; }
+    textarea:focus { border-color: rgba(72,182,255,0.55); box-shadow: 0 0 0 3px rgba(72,182,255,0.15); }
+
+    .endpoints { display: none; position: absolute; top: 70px; right: 0; width: 320px; max-height: 60vh; overflow: auto; background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 10px; box-shadow: var(--shadow); }
+    .endpoint { padding: 8px 10px; border-radius: 8px; color: var(--muted); cursor: pointer; }
+    .endpoint:hover { background: rgba(255,255,255,0.06); color: var(--text); }
+
+    @media (max-width: 820px){ .frame { inset: 10px; } .bubble{ max-width: 88%; } }
+  </style>
+</head>
+<body>
+  <div class="frame" role="application" aria-label="Mordzix Premium UI">
+    <header class="header">
+      <div class="brand">
+        <div class="logo" aria-hidden>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M12 3l8 4.5v9L12 21l-8-4.5v-9L12 3z" fill="#0a1425"/>
+            <path d="M12 5l6 3.4v6.8L12 18l-6-3.4V8.4L12 5z" fill="url(#g)"/>
+            <defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#48b6ff"/><stop offset="1" stop-color="#2aa6e6"/></linearGradient></defs>
+          </svg>
+        </div>
+        <div class="title-wrap">
+          <div class="title">Mordzix AI</div>
+          <div class="subtitle">Premium interfejs · Live + Offline</div>
+        </div>
+      </div>
+      <div class="spacer"></div>
+      <div class="status" id="status"><span class="dot" id="dot"></span><span id="statusText">offline</span></div>
+    </header>
+
+    <section class="messages-wrap">
+      <div class="messages" id="messages" aria-live="polite">
+        <!-- Messages injected here -->
+      </div>
+    </section>
+
+    <footer class="composer" aria-label="Wpisz wiadomość">
+      <div class="toolbox">
+        <button class="btn" id="micBtn" title="Nagraj (STT)">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg"><path d="M12 14a3 3 0 0 0 3-3V7a3 3 0 0 0-6 0v4a3 3 0 0 0 3 3z"/><path d="M19 11a7 7 0 0 1-14 0" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M12 18v3" fill="none" stroke="currentColor" stroke-width="1.6"/></svg>
+        </button>
+        <button class="btn" id="fileBtn" title="Załącz plik">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M21 15V8a2 2 0 0 0-2-2h-6l-4 4v9a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2z" stroke="currentColor" stroke-width="1.6"/><path d="M13 6v4h4" stroke="currentColor" stroke-width="1.6"/></svg>
+        </button>
+        <input type="file" id="fileInput" hidden />
+      </div>
+      <div class="input-wrap">
+        <textarea id="input" placeholder="Napisz wiadomość... (Enter: wyślij, Shift+Enter: nowa linia)"></textarea>
+        <div class="endpoints" id="endpoints"></div>
+      </div>
+      <div class="toolbox">
+        <button class="btn" id="ttsBtn" title="Odczytaj (TTS)">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M4 10v4" stroke="currentColor" stroke-width="1.6"/><path d="M8 7v10" stroke="currentColor" stroke-width="1.6"/><path d="M12 4v16" stroke="currentColor" stroke-width="1.6"/><path d="M16 7v10" stroke="currentColor" stroke-width="1.6"/><path d="M20 10v4" stroke="currentColor" stroke-width="1.6"/></svg>
+        </button>
+        <button class="btn primary" id="sendBtn" title="Wyślij">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="#051522" xmlns="http://www.w3.org/2000/svg"><path d="M3 11l18-8-8 18-2-7-8-3z"/></svg>
+        </button>
+      </div>
+    </footer>
+  </div>
+
+  <script>
+  (function(){
+    const messagesEl = document.getElementById('messages');
+    const inputEl = document.getElementById('input');
+    const sendBtn = document.getElementById('sendBtn');
+    const micBtn = document.getElementById('micBtn');
+    const fileBtn = document.getElementById('fileBtn');
+    const fileInput = document.getElementById('fileInput');
+    const ttsBtn = document.getElementById('ttsBtn');
+    const statusEl = document.getElementById('statusText');
+    const dotEl = document.getElementById('dot');
+
+    let LIVE_TOKEN = null;
+    let IS_LIVE = false;
+    let userId = 'user_' + Math.floor(Date.now()/1000);
+    const allMessages = [];
+
+    // Layout helpers
+    function autoScroll(){ requestAnimationFrame(()=>{ messagesEl.scrollTop = messagesEl.scrollHeight; }); }
+
+    function makeRow(role, text){
+      const row = document.createElement('div'); row.className = 'row ' + (role==='user'?'user':'ai');
+      const avatar = document.createElement('div'); avatar.className = 'avatar ' + (role==='user'?'user':'ai');
+      avatar.innerHTML = role==='user'
+        ? '<svg width="16" height="16" viewBox="0 0 24 24" fill="#051522" xmlns="http://www.w3.org/2000/svg"><path d="M12 12a5 5 0 1 0-5-5 5 5 0 0 0 5 5zm0 2c-4.418 0-8 2.239-8 5v1h16v-1c0-2.761-3.582-5-8-5z"/></svg>'
+        : '<svg width="16" height="16" viewBox="0 0 24 24" fill="#48b6ff" xmlns="http://www.w3.org/2000/svg"><path d="M12 3l8 4.5v9L12 21l-8-4.5v-9L12 3z"/></svg>';
+      const bubble = document.createElement('div'); bubble.className = 'bubble';
+      const content = document.createElement('div'); content.style.whiteSpace = 'pre-wrap'; content.textContent = text;
+      const meta = document.createElement('div'); meta.className = 'meta'; meta.textContent = new Date().toLocaleTimeString('pl-PL',{hour:'2-digit',minute:'2-digit'});
+      const actions = document.createElement('div'); actions.className = 'msg-actions';
+      const copyBtn = document.createElement('button'); copyBtn.className='icon-btn'; copyBtn.title='Kopiuj'; copyBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M9 9h11v11H9z" stroke="currentColor" stroke-width="1.6"/><path d="M4 4h11v11H4z" stroke="currentColor" stroke-width="1.6"/></svg>';
+      copyBtn.onclick = async ()=>{ try{ await navigator.clipboard.writeText(text); copyBtn.style.color = '#48b6ff'; setTimeout(()=>copyBtn.style.color='',600);}catch(e){} };
+      actions.appendChild(copyBtn);
+      bubble.appendChild(actions);
+      bubble.appendChild(content);
+      bubble.appendChild(meta);
+      if(role==='user'){ row.appendChild(bubble); row.appendChild(avatar);} else { row.appendChild(avatar); row.appendChild(bubble);}    
+      return row;
+    }
+
+    function addMessage(role, text){
+      allMessages.push({ role, content: text });
+      const row = makeRow(role, text);
+      messagesEl.appendChild(row);
+      autoScroll();
+    }
+
+    function setStatus(live){ IS_LIVE = !!live; statusEl.textContent = live ? 'live' : 'offline'; dotEl.style.background = live ? '#4ade80' : '#f59e0b'; dotEl.style.boxShadow = live ? '0 0 10px #4ade80' : '0 0 10px #f59e0b'; sendBtn.disabled = !live; }
+
+    // Typing indicator
+    let typingRow = null;
+    function showTyping(){ if(typingRow) return; typingRow=document.createElement('div'); typingRow.className='row ai'; const b=document.createElement('div'); b.className='bubble'; const t=document.createElement('div'); t.className='typing'; t.innerHTML='<span class="dot-t"></span><span class="dot-t"></span><span class="dot-t"></span>'; b.appendChild(t); typingRow.appendChild(document.createElement('div')).className='avatar ai'; typingRow.appendChild(b); messagesEl.appendChild(typingRow); autoScroll(); }
+    function hideTyping(){ if(typingRow){ typingRow.remove(); typingRow=null; } }
+
+    // Live manifest + token
+    async function initLive(){
+      try {
+        const ctrl = new AbortController(); const t = setTimeout(()=>ctrl.abort(), 1500);
+        let r = await fetch('/api/internal/ui', { signal: ctrl.signal });
+        clearTimeout(t);
+        if(!r.ok) throw new Error('no /ui');
+        const j = await r.json(); if(j && j.token) LIVE_TOKEN = j.token; setStatus(true);
+      } catch(e){
+        try {
+          const r2 = await fetch('/api/internal/ui_token');
+          if(r2.ok){ const j2 = await r2.json(); if(j2 && j2.token){ LIVE_TOKEN = j2.token; setStatus(true); } else setStatus(false); }
+          else setStatus(false);
+        } catch(err){ setStatus(false); }
+      }
+    }
+
+    // Send chat
+    async function send(){
+      const text = (inputEl.value||'').trim(); if(!text || !IS_LIVE) return;
+      addMessage('user', text); inputEl.value=''; inputEl.style.height='auto';
+      showTyping();
+      try {
+        const headers = { 'Content-Type': 'application/json' }; if(LIVE_TOKEN) headers['Authorization'] = 'Bearer ' + LIVE_TOKEN;
+        const payload = {
+          messages: allMessages.map(m=>({ role: m.role, content: m.content })),
+          user_id: userId,
+          use_memory: true,
+          use_research: true,
+          internet_allowed: true,
+          auto_learn: true
+        };
+        const r = await fetch('/api/chat/assistant', { method:'POST', headers, body: JSON.stringify(payload) });
+        hideTyping();
+        if(!r.ok){ addMessage('ai', 'Błąd: ' + r.status); return; }
+        const ct = r.headers.get('content-type')||'';
+        if(ct.includes('application/json')){
+          const j = await r.json();
+          const ans = j.answer || j.text || JSON.stringify(j);
+          addMessage('ai', ans);
+        } else {
+          const t = await r.text(); addMessage('ai', t);
+        }
+      } catch(err){ hideTyping(); addMessage('ai', 'Błąd połączenia.'); }
+    }
+
+    // Auto-resize textarea
+    inputEl.addEventListener('input', ()=>{ inputEl.style.height='auto'; inputEl.style.height=Math.min(inputEl.scrollHeight,140)+'px'; });
+    inputEl.addEventListener('keydown', e=>{ if(e.key==='Enter' && !e.shiftKey){ e.preventDefault(); send(); } });
+    sendBtn.addEventListener('click', send);
+
+    // File upload
+    fileBtn.addEventListener('click', ()=> fileInput.click());
+    fileInput.addEventListener('change', async (e)=>{
+      const f = e.target.files && e.target.files[0]; if(!f) return;
+      try {
+        const fd = new FormData(); fd.append('file', f);
+        const headers = {}; if(LIVE_TOKEN) headers['Authorization'] = 'Bearer ' + LIVE_TOKEN;
+        const r = await fetch('/api/files/upload', { method:'POST', headers, body: fd });
+        const j = await r.json();
+        if(j.ok){ addMessage('ai', `Dodano plik: ${j.filename} (${Math.round((j.size||0)/1024)} KB)`); }
+        else { addMessage('ai', 'Upload nieudany'); }
+      } catch(err){ addMessage('ai', 'Upload błąd.'); }
+      e.target.value='';
+    });
+
+    // STT via MediaRecorder -> /api/stt/transcribe
+    let mediaRec = null, recChunks = [];
+    micBtn.addEventListener('click', async ()=>{
+      try {
+        if(!mediaRec){
+          const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+          mediaRec = new MediaRecorder(stream);
+          mediaRec.ondataavailable = e=> recChunks.push(e.data);
+          mediaRec.onstop = async ()=>{
+            const blob = new Blob(recChunks, { type: 'audio/webm' }); recChunks = [];
+            const fd = new FormData(); fd.append('audio', blob, 'audio.webm');
+            const headers = {}; if(LIVE_TOKEN) headers['Authorization'] = 'Bearer ' + LIVE_TOKEN;
+            try {
+              const r = await fetch('/api/stt/transcribe', { method: 'POST', headers, body: fd });
+              const j = await r.json(); if(j && j.ok && j.text){ inputEl.value += (inputEl.value?' ':'') + j.text; inputEl.dispatchEvent(new Event('input')); }
+            } catch(err){ /* ignore */ }
+          };
+        }
+        if(mediaRec.state !== 'recording'){ mediaRec.start(); micBtn.style.opacity='.6'; setTimeout(()=>{ if(mediaRec && mediaRec.state==='recording'){ mediaRec.stop(); micBtn.style.opacity=''; } }, 3500); }
+      } catch(err){ alert('Brak dostępu do mikrofonu'); }
+    });
+
+    // TTS last AI message
+    ttsBtn.addEventListener('click', async ()=>{
+      const lastAi = [...allMessages].reverse().find(m=>m.role==='ai'); if(!lastAi) return;
+      const headers = { 'Content-Type':'application/json' }; if(LIVE_TOKEN) headers['Authorization'] = 'Bearer ' + LIVE_TOKEN;
+      try {
+        const r = await fetch('/api/tts/speak', { method:'POST', headers, body: JSON.stringify({ text: lastAi.content, voice: 'rachel' }) });
+        if(!r.ok){ addMessage('ai','TTS błąd: '+r.status); return; }
+        const buf = await r.arrayBuffer(); const blob = new Blob([buf], { type: 'audio/mpeg' }); const url = URL.createObjectURL(blob); const audio = new Audio(url); audio.play();
+      } catch(err){ addMessage('ai','TTS połączenie nieudane'); }
+    });
+
+    // Init
+    addMessage('ai', 'Cześć! Jestem Mordzix — premium ziomal. Napisz coś, a ogarnę.');
+    initLive();
+  })();
+  </script>
+</body>
+</html>
