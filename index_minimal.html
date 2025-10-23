@@ -939,6 +939,28 @@
             }
         }
 
+        // New chat (clear)
+        function newChat() {
+            if (confirm('Czy na pewno chcesz rozpocząć nową rozmowę? Obecna zostanie zachowana w historii.')) {
+                // Clear messages
+                const chatArea = document.getElementById('chat-area');
+                chatArea.innerHTML = '';
+                
+                // Show welcome
+                document.getElementById('welcome-message').style.display = 'flex';
+                
+                // Clear localStorage
+                localStorage.removeItem('mordzix_current_chat');
+                
+                // Generate new conversation ID
+                conversationId = 'conv_' + Date.now();
+                
+                // Close sidebar
+                document.querySelector('.sidebar').classList.remove('open');
+                document.getElementById('sidebar-overlay').classList.remove('active');
+            }
+        }
+
         // Focus input on load
         window.addEventListener('load', () => {
             document.getElementById('message-input').focus();
