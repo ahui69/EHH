@@ -18,9 +18,9 @@ import asyncio
 
 # Import all endpoint routers
 try:
-    from assistant_endpoint import router as assistant_router
+    from assistant_simple import router as simple_chat_router
 except ImportError:
-    assistant_router = None
+    simple_chat_router = None
 
 try:
     from stt_endpoint import router as stt_router
@@ -181,7 +181,7 @@ all_routers = [
     (suggestions_router, "Suggestions", 4),
     (internal_router, "Internal", 1),
     (files_router, "Files (Advanced)", 8),
-    (assistant_router, "Chat (Advanced)", 3),
+    (simple_chat_router, "Chat (Advanced)", 3),
     (routers_router, "Admin/Debug", 10),
     (batch_router, "Batch Processing", 4),
 ]
@@ -251,7 +251,7 @@ def health():
     }
 
 # ═══════════════════════════════════════════════════════════════════
-# CHAT ENDPOINTS - USUNIĘTE! Używamy assistant_router z cognitive_engine + memory
+# CHAT ENDPOINTS - USUNIĘTE! Używamy simple_chat_router z cognitive_engine + memory
 # ═══════════════════════════════════════════════════════════════════
     """Get automation summary for startup display"""
     return {
