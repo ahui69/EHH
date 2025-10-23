@@ -2,31 +2,21 @@
 <html lang="pl">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Mordzix AI</title>
     <style>
         * {
-            -webkit-tap-highlight-color: transparent;
-            -webkit-touch-callout: none;
             margin: 0;
             padding: 0;
             box-sizing: border-box;
         }
 
         body {
-            -webkit-text-size-adjust: 100%;
-            -ms-text-size-adjust: 100%;
-            touch-action: manipulation;
-            position: static;
-            width: 100%;
-            
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-            background: #0a0a0a;
+            background: #0A0E17;
             color: #E5E7EB;
             height: 100vh;
-            display: flex;
-            flex-direction: column;
-            
+            overflow: hidden;
         }
 
         .app-container {
@@ -37,13 +27,13 @@
         /* Sidebar */
         .sidebar {
             width: 280px;
-            background: #1a1a1a;
-            border-right: 1px solid #2a2a2a;
+            background: #111827;
+            border-right: 1px solid #1F2937;
             display: flex;
             flex-direction: column;
             transform: translateX(-100%);
             transition: transform 0.3s ease;
-            position: relative;
+            position: fixed;
             left: 0;
             top: 0;
             height: 100vh;
@@ -56,7 +46,7 @@
 
         .sidebar-overlay {
             display: none;
-            position: relative;
+            position: fixed;
             top: 0;
             left: 0;
             right: 0;
@@ -71,7 +61,7 @@
 
         .sidebar-header {
             padding: 20px;
-            border-bottom: 1px solid #2a2a2a;
+            border-bottom: 1px solid #1F2937;
             display: flex;
             justify-content: space-between;
             align-items: center;
@@ -102,7 +92,7 @@
         .conversation-item {
             padding: 12px;
             margin-bottom: 8px;
-            background: #252525;
+            background: #1F2937;
             border-radius: 8px;
             cursor: pointer;
             transition: background 0.2s;
@@ -113,7 +103,7 @@
         }
 
         .conversation-item.active {
-            background: #333333;
+            background: #2563EB;
         }
 
         .conversation-title {
@@ -136,8 +126,8 @@
 
         /* Header */
         .header {
-            background: #1a1a1a;
-            border-bottom: 1px solid #2a2a2a;
+            background: #111827;
+            border-bottom: 1px solid #1F2937;
             padding: 16px 24px;
             display: flex;
             align-items: center;
@@ -156,7 +146,7 @@
         }
 
         .menu-btn:hover {
-            background: #252525;
+            background: #1F2937;
         }
 
         .header-title {
@@ -226,11 +216,11 @@
         }
 
         .message.user .message-avatar {
-            background: #333333;
+            background: #2563EB;
         }
 
         .message.ai .message-avatar {
-            background: #2a2a2a;
+            background: #10B981;
         }
 
         .message-content {
@@ -238,7 +228,7 @@
         }
 
         .message-bubble {
-            background: #252525;
+            background: #1F2937;
             padding: 12px 16px;
             border-radius: 16px;
             line-height: 1.5;
@@ -247,7 +237,7 @@
         }
 
         .message.user .message-bubble {
-            background: #333333;
+            background: #2563EB;
         }
 
         .message-meta {
@@ -287,7 +277,7 @@
         }
 
         .typing-dots {
-            background: #252525;
+            background: #1F2937;
             padding: 12px 16px;
             border-radius: 16px;
             display: flex;
@@ -312,12 +302,21 @@
 
         /* Input Area */
         .input-area {
-            background: #1a1a1a;
+            background: #111827;
             border-top: 1px solid #1F2937;
             padding: 20px 24px;
         }
 
-.input-wrapper {            display: flex;            gap: 8px;            padding: 12px;            background: #1a1a1a;            border-top: 1px solid #2a2a2a;            width: 100%;            position: relative;            z-index: 100;        }
+        .input-wrapper {
+            max-width: 1000px;
+            margin: 0 auto;
+            display: flex;
+            align-items: flex-end;
+            gap: 12px;
+            background: #1F2937;
+            border-radius: 24px;
+            padding: 8px;
+        }
 
         .btn {
             background: none;
@@ -347,12 +346,12 @@
         }
 
         .btn-primary {
-            background: #333333;
+            background: #2563EB;
             color: white;
         }
 
         .btn-primary:hover {
-            background: #333333;
+            background: #1D4ED8;
         }
 
         .input-field {
@@ -421,7 +420,101 @@
                 padding: 12px 16px;
             }
         }
-#message-input {            flex: 1;            background: #252525;            border: 1px solid #333;            border-radius: 12px;            padding: 12px 16px;            color: #E5E7EB;            font-size: 16px !important;            line-height: 1.5;            resize: none;            min-height: 48px;            max-height: 200px;            -webkit-appearance: none;        }
+    </style>
+</head>
+<body>
+    <div class="app-container">
+        <!-- Sidebar -->
+        <aside class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+                <span class="sidebar-title">Historia rozmów</span>
+                <button class="close-sidebar" onclick="toggleSidebar()">✕</button>
+            </div>
+            <div class="conversations-list" id="conversations-list">
+                <!-- Historia rozmów ładowana dynamicznie -->
+            </div>
+        </aside>
+
+        <!-- Overlay (mobile) -->
+        <div class="sidebar-overlay" id="sidebar-overlay" onclick="toggleSidebar()"></div>
+
+        <!-- Main Content -->
+        <main class="main-content" id="main-content">
+            <!-- Header -->
+            <header class="header">
+                <button class="menu-btn" onclick="toggleSidebar()">☰</button>
+                <h1 class="header-title">Mordzix AI</h1>
+            </header>
+
+            <!-- Chat Area -->
+            <div class="chat-area" id="chat-area">
+                <!-- Welcome -->
+                <div class="welcome" id="welcome-message">
+                    <div class="welcome-icon">💬</div>
+                    <h2>Cześć!</h2>
+                    <p>Po prostu napisz co chcesz...</p>
+                </div>
+
+                <!-- Typing Indicator -->
+                <div class="typing-indicator" id="typing-indicator">
+                    <div class="message-avatar">🤖</div>
+                    <div class="typing-dots">
+                        <div class="typing-dot"></div>
+                        <div class="typing-dot"></div>
+                        <div class="typing-dot"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Input Area -->
+            <footer class="input-area">
+                <div class="file-preview" id="file-preview">
+                    <img class="file-preview-img" id="file-preview-img" style="display: none;">
+                    <span class="file-preview-name" id="file-preview-name"></span>
+                    <button class="file-preview-remove" onclick="removeAttachment()">✕</button>
+                </div>
+                <div class="input-wrapper">
+                    <button class="btn" id="mic-btn" title="Nagraj głos" aria-label="Nagraj głos">
+                        🎤
+                    </button>
+                    
+                    <button class="btn" id="attach-btn" title="Załącz plik" aria-label="Załącz plik" onclick="document.getElementById('file-input').click()">
+                        📎
+                    </button>
+                    
+                    <input type="file" id="file-input" accept="image/*,application/pdf,.txt,.doc,.docx" onchange="handleFileSelect(event)">
+
+                    <textarea 
+                        class="input-field" 
+                        id="message-input" 
+                        placeholder="Napisz wiadomość..."
+                        rows="1"
+                        aria-label="Wiadomość"
+                        onkeydown="handleKeyPress(event)"
+                        oninput="autoResize(this)"
+                    ></textarea>
+
+                    <button class="btn btn-primary" id="send-btn" title="Wyślij" aria-label="Wyślij" onclick="sendMessage()">
+                        ➤
+                    </button>
+                </div>
+            </footer>
+        </main>
+    </div>
+
+    <script>
+        // State
+        let conversationId = 'conv_' + Date.now();
+        let currentAttachment = null;
+        let isRecording = false;
+        let mediaRecorder = null;
+        let audioChunks = [];
+
+        // Auto-resize textarea
+        function autoResize(textarea) {
+            textarea.style.height = 'auto';
+            textarea.style.height = textarea.scrollHeight + 'px';
+        }
 
         // Handle Enter key
         function handleKeyPress(event) {
@@ -812,67 +905,10 @@
             }
         }
 
-        // Save/Load messages from localStorage
-        function saveMessages() {
-            try {
-                const chatArea = document.getElementById('chat-area');
-                const messages = [];
-                chatArea.querySelectorAll('.message').forEach(msg => {
-                    messages.push({
-                        role: msg.classList.contains('user') ? 'user' : 'ai',
-                        text: msg.querySelector('.message-bubble').textContent
-                    });
-                });
-                localStorage.setItem('mordzix_current_chat', JSON.stringify(messages));
-            } catch (e) {
-                console.error('Save messages error:', e);
-            }
-        }
-
-        function loadMessages() {
-            try {
-                const saved = localStorage.getItem('mordzix_current_chat');
-                if (saved) {
-                    const messages = JSON.parse(saved);
-                    if (messages.length > 0) {
-                        document.getElementById('welcome-message').style.display = 'none';
-                        messages.forEach(msg => {
-                            addMessage(msg.role, msg.text, false); // false = don't save again
-                        });
-                    }
-                }
-            } catch (e) {
-                console.error('Load messages error:', e);
-            }
-        }
-
-        // New chat (clear)
-        function newChat() {
-            if (confirm('Czy na pewno chcesz rozpocząć nową rozmowę? Obecna zostanie zachowana w historii.')) {
-                // Clear messages
-                const chatArea = document.getElementById('chat-area');
-                chatArea.innerHTML = '';
-                
-                // Show welcome
-                document.getElementById('welcome-message').style.display = 'flex';
-                
-                // Clear localStorage
-                localStorage.removeItem('mordzix_current_chat');
-                
-                // Generate new conversation ID
-                conversationId = 'conv_' + Date.now();
-                
-                // Close sidebar
-                document.querySelector('.sidebar').classList.remove('open');
-                document.getElementById('sidebar-overlay').classList.remove('active');
-            }
-        }
-
         // Focus input on load
         window.addEventListener('load', () => {
             document.getElementById('message-input').focus();
             loadConversationHistory();
-            loadMessages(); // Load chat messages on refresh
         });
     </script>
 </body>
