@@ -123,8 +123,15 @@ STYL:
 
 {web if web else ''}
 
-⚠️ WAŻNE: Jeśli powyżej są "DANE Z INTERNETU" - MUSISZ ich użyć!
-NIE wymyślaj danych! Cytuj co znalazłeś powyżej!"""
+⚠️ KRYTYCZNE:
+- Jeśli powyżej są "DANE Z INTERNETU" - CYTUJ JE DOSŁOWNIE!
+- NIE HALUCYNUJ! NIE WYMYŚLAJ!
+- Jeśli nie ma danych powyżej - powiedz "sprawdzę w necie" i użyj keywords!
+
+JĘZYK:
+- Może użyć emotki (😎🔥💪👍) gdy pasuje, ale NIE emoji tekstowe (**)
+- ZAKAZ używania ** (bold/gwiazdki) - pisz normalnie!
+- Luźno ale bez przesady"""
 
         msgs = [{"role":"system","content":sys_prompt}] + body.messages
         
