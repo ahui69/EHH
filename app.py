@@ -371,9 +371,9 @@ except Exception as e:
     if not _SUPPRESS_IMPORT_LOGS:
         print(f"✗ Batch endpoint: {e}")
 
-# 14. RESEARCH (web search - DuckDuckGo, Wikipedia, SERPAPI)
+# 14. RESEARCH (web search - DuckDuckGo, Wikipedia, SERPAPI, arXiv, Semantic Scholar)
 try:
-    import research_endpoint
+    from core import research_endpoint
     app.include_router(research_endpoint.router)
     if not _SUPPRESS_IMPORT_LOGS:
         print("✓ Research endpoint       /api/research/*")
@@ -381,7 +381,27 @@ except Exception as e:
     if not _SUPPRESS_IMPORT_LOGS:
         print(f"✗ Research endpoint: {e}")
 
-# 15. INTERNAL UI (manifest + optional token for UI)
+# 15. NLP PROCESSOR (spaCy, sentiment, NER, keywords)
+try:
+    import nlp_endpoint
+    app.include_router(nlp_endpoint.router)
+    if not _SUPPRESS_IMPORT_LOGS:
+        print("✓ NLP endpoint            /api/nlp/*")
+except Exception as e:
+    if not _SUPPRESS_IMPORT_LOGS:
+        print(f"✗ NLP endpoint: {e}")
+
+# 16. COGNITIVE SYSTEMS (self-reflection, proactive, psychology, multi-agent)
+try:
+    from core import cognitive_endpoint
+    app.include_router(cognitive_endpoint.router)
+    if not _SUPPRESS_IMPORT_LOGS:
+        print("✓ Cognitive endpoint      /api/cognitive/*")
+except Exception as e:
+    if not _SUPPRESS_IMPORT_LOGS:
+        print(f"✗ Cognitive endpoint: {e}")
+
+# 17. INTERNAL UI (manifest + optional token for UI)
 try:
     import internal_ui
     app.include_router(internal_ui.router)
