@@ -14,7 +14,7 @@
 | **Code Executor** | 13 | `programista_endpoint.py` |
 | **Files** | 8 | `files_endpoint.py` |
 | **Travel** | 6 | `travel_endpoint.py` |
-| **Research** | 4 | `research_endpoint.py` |
+| **Research** | 4 | `core/research_endpoint.py` |
 | **NLP** | 8 | `nlp_endpoint.py` |
 | **Writing** | 12 | `writing_endpoint.py` |
 | **TTS/STT** | 3 | `tts_endpoint.py`, `stt_endpoint.py` |
@@ -753,4 +753,211 @@ MAX_TOKENS=2000
 
 ---
 
-**Koniec mapy endpointów.**
+## 🧠 MODUŁY POMOCNICZE (Core Utils - bez HTTP endpoints)
+
+### 16. Advanced Proactive (`core/advanced_proactive.py`)
+**Funkcje:**
+- `ConversationAnalyzer` - analiza kontekstu rozmowy
+- `generate_proactive_suggestions()` - proaktywne sugestie
+- Analiza tematów, intencji, wzorców użytkownika
+- Predykcja potrzeb na podstawie historii
+
+### 17. Advanced Psychology (`core/advanced_psychology.py`)
+**Funkcje:**
+- `EmotionalState` - symulacja emocji AI
+- `get_psyche_state()` - stan psychologiczny
+- `process_user_message()` - analiza emocji użytkownika
+- Plutchik's emotions, PAD model (valence/arousal/dominance)
+
+### 18. Advanced Cognitive Engine (`core/advanced_cognitive_engine.py`)
+**Funkcje:**
+- `AdvancedCognitiveEngine` - orkiestracja 5 systemów kognitywnych
+- `process_with_full_cognition()` - pełna pipeline
+- Integracja: self-reflection, knowledge compression, multi-agent, future prediction, inner language
+
+### 19. Self Reflection (`core/self_reflection.py`)
+**Funkcje:**
+- `SelfReflectionEngine` - auto-ewaluacja odpowiedzi
+- `reflect_on_response()` - cykl refleksji (5 poziomów głębokości)
+- Meta-analiza, improvement loop, insights extraction
+
+### 20. Knowledge Compression (`core/knowledge_compression.py`)
+**Funkcje:**
+- Kompresja długich tekstów do esencji
+- Transfer learning między domenami
+- Hierarchiczna destylacja wiedzy
+
+### 21. Multi-Agent Orchestrator (`core/multi_agent_orchestrator.py`)
+**Funkcje:**
+- `MultiAgentOrchestrator` - zarządzanie wieloma agentami AI
+- `multi_agent_response()` - konsensus wielu perspektyw
+- Role: Analityk, Kreatywny, Pragmatyczny, Krytyczny, Syntetyczny
+
+### 22. Future Predictor (`core/future_predictor.py`)
+**Funkcje:**
+- Predykcja przyszłych pytań/potrzeb
+- Analiza trendów w konwersacji
+- Proaktywne przygotowanie kontekstu
+
+### 23. Inner Language (`core/inner_language.py`)
+**Funkcje:**
+- `InnerLanguageProcessor` - wewnętrzny język semantyczny AI
+- Kompresja myśli do symboli wysokiego poziomu
+- Szybsza komunikacja między modułami
+
+### 24. Tools Registry (`core/tools_registry.py`)
+**Funkcje:**
+- `get_all_tools()` - lista wszystkich narzędzi (85+ tools)
+- `get_tool_by_name()`, `get_tools_by_category()`
+- `format_for_openai()` - konwersja do OpenAI format
+- Kategorie: search, news, crypto, travel, code, writing, vision, etc.
+
+### 25. Tools (`core/tools.py`)
+**Funkcje:**
+- `InternetSearcher` - wyszukiwarka web (DDG, SERP)
+- `AdvancedRecommendationEngine` - rekomendacje
+- `AdvancedCryptoAnalyzer` - analiza krypto
+- `AdvancedCodeReviewer` - review kodu
+- `AdvancedWorkflowEngine` - workflow automation
+- Handlery: `tools_time_handler()`, `tools_search_handler()`, `tools_news_handler()`, `tools_sports_handler()`
+
+### 26. Semantic (`core/semantic.py`)
+**Funkcje:**
+- `SemanticAnalyzer` - analiza semantyczna tekstu
+- `embed_text()` - embeddingi (sentence-transformers)
+- `cosine_similarity()` - podobieństwo wektorowe
+- `semantic_analyze()`, `semantic_enhance_response()`
+- Ekstrakcja: encje, relacje, koncepty, sentiment
+
+### 27. Research (`core/research.py`)
+**Funkcje:**
+- `autonauka()` - auto-learning z web research
+- `web_learn()` - pełna pipeline: search → scrape → analyze → LLM
+- Wyszukiwanie: DuckDuckGo, Wikipedia, arXiv, Semantic Scholar, SERPAPI
+- Scraping: Firecrawl fallback, BeautifulSoup
+- Ranking: BM25 + hybrydowy (cosine hash + Jaccard)
+- `serpapi_search()`, `firecrawl_scrape()`, `wiki_search()`
+
+### 28. NLP Processor (`core/nlp_processor.py`)
+**Funkcje:**
+- `NLPProcessor` - zaawansowane przetwarzanie NLP
+- Analiza: sentiment, encje (NER), POS tagging, dependency parsing
+- Ekstrakcja: keywords, phrases, relations
+- spaCy (pl_core_news_sm), NLTK
+
+### 29. Parallel Processing (`core/parallel.py`)
+**Funkcje:**
+- `AsyncTaskPool` - pool asynchronicznych tasków
+- `parallel_map()` - równoległe przetwarzanie list
+- `priority_parallel_map()` - z priorytetami
+- `batch_process()` - batch processing
+- `process_with_fallback()` - retry z fallback
+
+### 30. Memory (`core/memory.py`)
+**Funkcje:**
+- `ltm_search_hybrid()` - wyszukiwanie w LTM (Long-Term Memory)
+- `stm_get_context()` - STM (Short-Term Memory) context
+- `psy_get()`, `psy_set()` - psyche state persistence
+- SQLite backend (mem.db)
+
+### 31. Batch Processing (`core/batch_processing.py`)
+**Funkcje:**
+- `LLMBatchProcessor` - batch processing dla LLM calls
+- `process_batch()` - równoległe wywołania LLM
+- `call_llm_batch()` - wrapper dla batch calls
+- Metryki: throughput, latency, errors
+
+### 32. Advanced LLM (`core/advanced_llm.py`)
+**Funkcje:**
+- `adaptive_llm_call()` - adaptacyjne wywołania LLM
+- `batch_multiple_prompts()` - batch prompts
+- `optimize_prompt()` - optymalizacja promptów
+- `enhanced_cognitive_llm_call()` - z cognitive pipeline
+- `estimate_tokens()`, `extract_key_information()`
+
+### 33. Cognitive Engine (`core/cognitive_engine.py`)
+**Funkcje:**
+- `CognitiveEngine` - podstawowy silnik kognitywny
+- Intent detection, context analysis
+- Integration z memory, research, tools
+
+### 34. AI Vision (`core/ai_vision.py`)
+**Funkcje:**
+- `AIVisionManager` - zarządzanie vision models
+- Analiza obrazów (OCR, object detection, description)
+- Integration z OpenAI Vision, local models
+
+### 35. AI Fashion (`core/ai_fashion.py`)
+**Funkcje:**
+- Analiza mody z obrazów
+- Rekomendacje stylizacji
+- Trend prediction
+
+### 36. AI Auction (`core/ai_auction.py`)
+**Funkcje:**
+- Automatyczne generowanie opisów aukcji
+- SEO optimization dla aukcji
+- Pricing recommendations
+
+### 37. User Model (`core/user_model.py`)
+**Funkcje:**
+- `UserModel` - model użytkownika
+- Profiling: preferencje, historia, wzorce
+- Personalizacja odpowiedzi
+
+### 38. Intent Dispatcher (`core/intent_dispatcher.py`)
+**Funkcje:**
+- `analyze_intent_and_select_tools()` - detekcja intencji + wybór narzędzi
+- `execute_selected_tools()` - wykonanie narzędzi
+- Auto-routing do odpowiednich endpointów
+
+### 39. Executor (`core/executor.py`)
+**Funkcje:**
+- `Programista` - wykonywanie kodu (Python, Bash, Node.js, etc.)
+- `_run()` - shell command execution
+- Sandboxing, timeout, bezpieczeństwo
+
+### 40. Auth (`core/auth.py`)
+**Funkcje:**
+- `check_auth()` - weryfikacja tokena
+- `auth_dependency()` - FastAPI dependency
+- `extract_token()`, `get_ip_address()`
+
+### 41. Middleware (`core/middleware.py`)
+**Funkcje:**
+- `LLMCACHE` - cache dla LLM responses
+- `SearchCache` - cache dla search results
+- `RateLimiter` - rate limiting per user/IP
+
+### 42. Metrics (`core/metrics.py`)
+**Funkcje:**
+- Prometheus metrics collection
+- `record_request()`, `record_error()`
+- LLM cache stats, DB stats
+
+### 43. Hierarchical Memory (`core/hierarchical_memory.py`)
+**Funkcje:**
+- 3-poziomowa pamięć: L1 (epizody), L2 (fakty semantyczne), L3 (meta-knowledge)
+- `store_episode()`, `store_semantic_fact()`, `consolidate_to_meta()`
+
+### 44. Prompt Templates (`core/prompt.py`)
+**Funkcje:**
+- Szablony promptów dla różnych zadań
+- System prompts, user prompts
+- Formatowanie kontekstu
+
+---
+
+## 📊 STATYSTYKI FINALNE
+
+- **Endpointy HTTP:** 85 (15 plików)
+- **Moduły pomocnicze:** 29 (core/)
+- **Główne funkcje:** 200+
+- **Klasy:** 50+
+- **Integracje:** OpenAI, DeepInfra, Qwen3, SERPAPI, Firecrawl, DuckDuckGo, Wikipedia, arXiv, Semantic Scholar
+- **Bazy danych:** SQLite (mem.db, psyche, LTM)
+- **AI Models:** LLM (Qwen3), Embeddings (sentence-transformers), spaCy, Vision
+
+---
+
+**Koniec mapy endpointów i modułów.**
