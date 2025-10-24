@@ -1,0 +1,267 @@
+# Mordzix AI - Docker Compose Configuration
+# Professional AI Platform with 144 API Endpoints
+
+version: '3.8'
+
+services:
+  # =============================================================================
+  # Main Application
+  # =============================================================================
+  mordzix-ai:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: production
+    container_name: mordzix-ai
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=postgresql://mordzix:password@postgres:5432/mordzix
+      - REDIS_URL=redis://redis:6379/0
+      - HOST=0.0.0.0
+      - PORT=8000
+      - DEBUG=False
+      - LOG_LEVEL=INFO
+    env_file:
+      - .env
+    volumes:
+      - ./uploads:/app/uploads
+      - ./logs:/app/logs
+      - ./backups:/app/backups
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - mordzix-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # =============================================================================
+  # Database
+  # =============================================================================
+  postgres:
+    image: postgres:15-alpine
+    container_name: mordzix-postgres
+    restart: unless-stopped
+    environment:
+      - POSTGRES_DB=mordzix
+      - POSTGRES_USER=mordzix
+      - POSTGRES_PASSWORD=password
+      - POSTGRES_INITDB_ARGS=--encoding=UTF-8 --lc-collate=C --lc-ctype=C
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./scripts/init-db.sql:/docker-entrypoint-initdb.d/init-db.sql
+    ports:
+      - "5432:5432"
+    networks:
+      - mordzix-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U mordzix -d mordzix"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # =============================================================================
+  # Redis Cache
+  # =============================================================================
+  redis:
+    image: redis:7-alpine
+    container_name: mordzix-redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes --requirepass password
+    volumes:
+      - redis_data:/data
+    ports:
+      - "6379:6379"
+    networks:
+      - mordzix-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "--raw", "incr", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  # =============================================================================
+  # Nginx Reverse Proxy
+  # =============================================================================
+  nginx:
+    image: nginx:alpine
+    container_name: mordzix-nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf
+      - ./ssl:/etc/nginx/ssl
+      - ./uploads:/var/www/uploads
+    depends_on:
+      - mordzix-ai
+    networks:
+      - mordzix-network
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # =============================================================================
+  # Monitoring
+  # =============================================================================
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: mordzix-prometheus
+    restart: unless-stopped
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--storage.tsdb.retention.time=200h'
+      - '--web.enable-lifecycle'
+    networks:
+      - mordzix-network
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: mordzix-grafana
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_USERS_ALLOW_SIGN_UP=false
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./monitoring/grafana/dashboards:/etc/grafana/provisioning/dashboards
+      - ./monitoring/grafana/datasources:/etc/grafana/provisioning/datasources
+    depends_on:
+      - prometheus
+    networks:
+      - mordzix-network
+
+  # =============================================================================
+  # Development Services
+  # =============================================================================
+  mordzix-dev:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: development
+    container_name: mordzix-dev
+    restart: unless-stopped
+    ports:
+      - "8001:8000"
+    environment:
+      - DATABASE_URL=postgresql://mordzix:password@postgres:5432/mordzix
+      - REDIS_URL=redis://redis:6379/0
+      - HOST=0.0.0.0
+      - PORT=8000
+      - DEBUG=True
+      - LOG_LEVEL=DEBUG
+    env_file:
+      - .env
+    volumes:
+      - .:/app
+      - ./uploads:/app/uploads
+      - ./logs:/app/logs
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - mordzix-network
+    profiles:
+      - dev
+
+  # =============================================================================
+  # Testing Services
+  # =============================================================================
+  mordzix-test:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: development
+    container_name: mordzix-test
+    restart: "no"
+    environment:
+      - DATABASE_URL=postgresql://mordzix:password@postgres-test:5432/mordzix_test
+      - REDIS_URL=redis://redis-test:6379/0
+      - HOST=0.0.0.0
+      - PORT=8000
+      - DEBUG=True
+      - LOG_LEVEL=DEBUG
+    env_file:
+      - .env
+    volumes:
+      - .:/app
+    depends_on:
+      - postgres-test
+      - redis-test
+    networks:
+      - mordzix-network
+    profiles:
+      - test
+
+  postgres-test:
+    image: postgres:15-alpine
+    container_name: mordzix-postgres-test
+    restart: "no"
+    environment:
+      - POSTGRES_DB=mordzix_test
+      - POSTGRES_USER=mordzix
+      - POSTGRES_PASSWORD=password
+    volumes:
+      - postgres_test_data:/var/lib/postgresql/data
+    networks:
+      - mordzix-network
+    profiles:
+      - test
+
+  redis-test:
+    image: redis:7-alpine
+    container_name: mordzix-redis-test
+    restart: "no"
+    command: redis-server --appendonly yes --requirepass password
+    volumes:
+      - redis_test_data:/data
+    networks:
+      - mordzix-network
+    profiles:
+      - test
+
+# =============================================================================
+# Volumes
+# =============================================================================
+volumes:
+  postgres_data:
+    driver: local
+  postgres_test_data:
+    driver: local
+  redis_data:
+    driver: local
+  redis_test_data:
+    driver: local
+  prometheus_data:
+    driver: local
+  grafana_data:
+    driver: local
+
+# =============================================================================
+# Networks
+# =============================================================================
+networks:
+  mordzix-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16

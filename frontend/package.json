@@ -1,0 +1,50 @@
+{
+  "name": "mordzix-ai-frontend",
+  "version": "2.0.0",
+  "description": "Professional AI Platform Frontend - 144 API Endpoints, Natural Language Interface",
+  "main": "index_professional.html",
+  "scripts": {
+    "start": "python -m http.server 8080",
+    "dev": "python -m http.server 8080",
+    "build": "echo 'No build process needed - pure HTML/CSS/JS'",
+    "test": "echo 'No tests configured'",
+    "lint": "echo 'No linter configured'"
+  },
+  "keywords": [
+    "ai",
+    "artificial-intelligence",
+    "platform",
+    "api",
+    "natural-language",
+    "assistant",
+    "frontend",
+    "javascript",
+    "html",
+    "css"
+  ],
+  "author": "Mordzix AI Team",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/mordzix-ai/mordzix-ai.git"
+  },
+  "bugs": {
+    "url": "https://github.com/mordzix-ai/issues"
+  },
+  "homepage": "https://mordzix-ai.com",
+  "engines": {
+    "node": ">=16.0.0"
+  },
+  "browserslist": [
+    "> 1%",
+    "last 2 versions",
+    "not dead"
+  ],
+  "devDependencies": {},
+  "dependencies": {},
+  "files": [
+    "index_professional.html",
+    "README.md",
+    "LICENSE"
+  ]
+}
