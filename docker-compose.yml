@@ -1,0 +1,60 @@
+version: '3.8'
+
+services:
+  # Backend FastAPI
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: mordzix-backend
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      - HOST=0.0.0.0
+      - PORT=8080
+      - MEM_DB=/app/data/mem.db
+      - WORKSPACE=/app/workspace
+    env_file:
+      - .env
+    volumes:
+      - ./data:/app/data
+      - ./workspace:/app/workspace
+      - ./mem.db:/app/mem.db
+    networks:
+      - mordzix-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Nginx (reverse proxy + static files)
+  nginx:
+    image: nginx:alpine
+    container_name: mordzix-nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/ssl:/etc/nginx/ssl:ro
+      - ./frontend/dist:/usr/share/nginx/html:ro
+    depends_on:
+      - backend
+    networks:
+      - mordzix-network
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+networks:
+  mordzix-network:
+    driver: bridge
+
+volumes:
+  mordzix-data:
