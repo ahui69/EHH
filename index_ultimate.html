@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Mordzix AI - Ultimate Professional Platform</title>
-    <meta name="description" content="Ultimate Professional AI Platform with 144 API endpoints, natural language interface, and advanced AI capabilities">
+    <meta name="description" content="Ultimate Professional AI Platform with 69 API endpoints, natural language interface, and advanced AI capabilities">
     <meta name="keywords" content="AI, artificial intelligence, platform, API, natural language, assistant, professional">
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🧠</text></svg>">
     
@@ -1187,6 +1187,27 @@
                     <span class="nav-icon">🔨</span>
                     AI Auction
                 </a>
+                
+                <!-- NEW RESTORED AI SECTIONS -->
+                <a href="#" class="nav-item" data-section="psyche-analysis">
+                    <span class="nav-icon">🧠</span>
+                    Psychika
+                </a>
+                
+                <a href="#" class="nav-item" data-section="autonauka-learning">
+                    <span class="nav-icon">🎓</span>
+                    Autonauka
+                </a>
+                
+                <a href="#" class="nav-item" data-section="proactive-suggestions">
+                    <span class="nav-icon">💡</span>
+                    Sugestie
+                </a>
+                
+                <a href="#" class="nav-item" data-section="advanced-web-research">
+                    <span class="nav-icon">🔍</span>
+                    Web Research
+                </a>
             </div>
             
             <div class="sidebar-section">
@@ -1230,7 +1251,7 @@
                         <div class="welcome-icon">🚀</div>
                         <h1 class="welcome-title">Welcome to Mordzix AI</h1>
                         <p class="welcome-subtitle">
-                            Your ultimate professional AI assistant with 144 API endpoints, natural language processing, 
+                            Your ultimate professional AI assistant with 69 API endpoints, natural language processing, 
                             and advanced capabilities. Start a conversation to explore the platform.
                         </p>
                         <div class="features">
@@ -1241,7 +1262,7 @@
                             </div>
                             <div class="feature" data-feature="apis">
                                 <div class="feature-icon">🔧</div>
-                                <div class="feature-title">144 APIs</div>
+                                <div class="feature-title">69 APIs</div>
                                 <div class="feature-desc">Massive functionality</div>
                             </div>
                             <div class="feature" data-feature="realtime">
@@ -1331,7 +1352,7 @@
     <div class="modal" id="endpointsModal">
         <div class="modal-content">
             <div class="modal-header">
-                <h2 class="modal-title">API Endpoints (144 Total)</h2>
+                <h2 class="modal-title">API Endpoints (69 Total)</h2>
                 <button class="modal-close" id="closeEndpoints">×</button>
             </div>
             <div class="endpoints-list" id="endpointsList">
@@ -1699,6 +1720,19 @@
                 case 'ai-auction':
                     showAIAuctionInterface();
                     break;
+                // NEW RESTORED AI SECTIONS
+                case 'psyche-analysis':
+                    showPsycheAnalysisInterface();
+                    break;
+                case 'autonauka-learning':
+                    showAutonaukaLearningInterface();
+                    break;
+                case 'proactive-suggestions':
+                    showProactiveSuggestionsInterface();
+                    break;
+                case 'advanced-web-research':
+                    showAdvancedWebResearchInterface();
+                    break;
             }
         }
 
@@ -1776,6 +1810,27 @@
         function showAIAuctionInterface() {
             messageInput.placeholder = "AI Auction: Describe your item for price prediction...";
             showNotification('AI Auction: Optimize your auctions with AI predictions', 'info');
+        }
+        
+        // NEW RESTORED AI INTERFACE FUNCTIONS
+        function showPsycheAnalysisInterface() {
+            messageInput.placeholder = "Psychika: Opisz siebie lub sytuację...";
+            showNotification('Psychika: Analiza psychologiczna i osobowości', 'info');
+        }
+        
+        function showAutonaukaLearningInterface() {
+            messageInput.placeholder = "Autonauka: System uczy się z każdej interakcji...";
+            showNotification('Autonauka: Real-time learning system', 'info');
+        }
+        
+        function showProactiveSuggestionsInterface() {
+            messageInput.placeholder = "Sugestie: Opisz co robisz...";
+            showNotification('Proaktywne sugestie: Inteligentne rekomendacje', 'info');
+        }
+        
+        function showAdvancedWebResearchInterface() {
+            messageInput.placeholder = "Web Research: Wpisz zapytanie...";
+            showNotification('Zaawansowane wyszukiwanie: Multi-engine search', 'info');
         }
 
         function showAnalytics() {
@@ -2224,6 +2279,63 @@
                             };
                         }
                     
+                    // NEW RESTORED AI SECTIONS
+                    case 'psyche-analysis':
+                        if (text) {
+                            const result = await analyzePsyche(text);
+                            return {
+                                ok: true,
+                                text: `Analiza psychologiczna:\n\nOsobowość:\n${Object.entries(result.personality_traits).map(([trait, score]) => `• ${trait}: ${(score * 100).toFixed(1)}%`).join('\n')}\n\nEmocje:\n${Object.entries(result.emotional_state).map(([emotion, score]) => `• ${emotion}: ${(score * 100).toFixed(1)}%`).join('\n')}\n\nInsights:\n${result.psychological_insights.map(i => `• ${i}`).join('\n')}\n\nRekomendacje:\n${result.recommendations.map(r => `• ${r}`).join('\n')}`
+                            };
+                        } else {
+                            return {
+                                ok: true,
+                                text: 'Opisz siebie lub sytuację aby przeanalizować psychikę. Przykład: "Jestem introwertykiem, lubię planować i jestem kreatywny"'
+                            };
+                        }
+                    
+                    case 'autonauka-learning':
+                        if (text) {
+                            const result = await learnFromInteraction(text);
+                            return {
+                                ok: true,
+                                text: `Autonauka - Uczenie w locie:\n\nStatus: ${result.learned ? 'Uczono się' : 'Błąd uczenia'}\n\nInsights:\n${result.insights.map(i => `• ${i.pattern} (pewność: ${(i.confidence * 100).toFixed(1)}%)`).join('\n')}\n\nUlepszenia:\n${result.improvements.map(i => `• ${i}`).join('\n')}\n\nNastępne kroki:\n${result.next_actions.map(a => `• ${a}`).join('\n')}`
+                            };
+                        } else {
+                            return {
+                                ok: true,
+                                text: 'Autonauka uczy się z każdej interakcji. Wpisz cokolwiek aby zobaczyć jak system się uczy!'
+                            };
+                        }
+                    
+                    case 'proactive-suggestions':
+                        if (text) {
+                            const result = await generateProactiveSuggestions(text);
+                            return {
+                                ok: true,
+                                text: `Proaktywne sugestie:\n\nSugestie:\n${result.suggestions.map(s => `• ${s.text} (pewność: ${(s.confidence * 100).toFixed(1)}%)`).join('\n')}\n\nPowód:\n${result.reasoning.map(r => `• ${r}`).join('\n')}\n\nPersonalizowane: ${result.personalized ? 'Tak' : 'Nie'}`
+                            };
+                        } else {
+                            return {
+                                ok: true,
+                                text: 'Opisz co robisz aby otrzymać proaktywne sugestie. Przykład: "Pracuję nad projektem AI"'
+                            };
+                        }
+                    
+                    case 'advanced-web-research':
+                        if (text) {
+                            const result = await advancedWebSearch(text);
+                            return {
+                                ok: true,
+                                text: `Zaawansowane wyszukiwanie:\n\nZnaleziono: ${result.total_found} wyników\nCzas wyszukiwania: ${result.search_time.toFixed(2)}s\n\nWyniki:\n${result.results.slice(0, 5).map(r => `• ${r.title}\n  ${r.url}\n  ${r.snippet}`).join('\n\n')}\n\nSugestie:\n${result.suggestions.map(s => `• ${s}`).join('\n')}\n\nPowiązane zapytania:\n${result.related_queries.map(q => `• ${q}`).join('\n')}`
+                            };
+                        } else {
+                            return {
+                                ok: true,
+                                text: 'Wpisz zapytanie aby wyszukać w internecie. Przykład: "sztuczna inteligencja 2024"'
+                            };
+                        }
+                    
                     default:
                         return {
                             ok: true,
@@ -2518,6 +2630,134 @@
                 return { success: false };
             }
         }
+        
+        // NEW RESTORED AI FUNCTIONS
+        async function analyzePsyche(text) {
+            try {
+                const response = await fetch('/api/psyche/analyze', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${getToken()}`
+                    },
+                    body: JSON.stringify({ 
+                        text, 
+                        context: { source: 'frontend' },
+                        user_id: getCurrentUserId()
+                    })
+                });
+                
+                if (!response.ok) throw new Error('Psyche analysis failed');
+                return await response.json();
+            } catch (error) {
+                console.error('Psyche analysis error:', error);
+                return {
+                    personality_traits: { openness: 0.5, conscientiousness: 0.5, extraversion: 0.5, agreeableness: 0.5, neuroticism: 0.5 },
+                    emotional_state: { joy: 0.3, sadness: 0.2, anger: 0.1, fear: 0.1, surprise: 0.1, disgust: 0.1, love: 0.1, hate: 0.0 },
+                    psychological_insights: ['Analiza psychologiczna niedostępna'],
+                    recommendations: ['Spróbuj ponownie później']
+                };
+            }
+        }
+        
+        async function learnFromInteraction(text) {
+            try {
+                const response = await fetch('/api/autonauka/learn', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${getToken()}`
+                    },
+                    body: JSON.stringify({
+                        user_id: getCurrentUserId(),
+                        interaction_type: 'chat',
+                        input_data: text,
+                        output_data: 'User interaction',
+                        context: { source: 'frontend', timestamp: new Date().toISOString() }
+                    })
+                });
+                
+                if (!response.ok) throw new Error('Learning failed');
+                return await response.json();
+            } catch (error) {
+                console.error('Learning error:', error);
+                return {
+                    learned: false,
+                    insights: [],
+                    improvements: ['System uczenia niedostępny'],
+                    next_actions: ['Spróbuj ponownie później']
+                };
+            }
+        }
+        
+        async function generateProactiveSuggestions(text) {
+            try {
+                const response = await fetch('/api/suggestions/generate', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${getToken()}`
+                    },
+                    body: JSON.stringify({
+                        user_id: getCurrentUserId(),
+                        context: { activity: text, source: 'frontend' },
+                        current_activity: 'chat',
+                        time_of_day: getTimeOfDay()
+                    })
+                });
+                
+                if (!response.ok) throw new Error('Suggestions generation failed');
+                return await response.json();
+            } catch (error) {
+                console.error('Suggestions error:', error);
+                return {
+                    suggestions: [{ text: 'Sugestie niedostępne', confidence: 0.0 }],
+                    reasoning: ['System sugestii niedostępny'],
+                    personalized: false
+                };
+            }
+        }
+        
+        async function advancedWebSearch(query) {
+            try {
+                const response = await fetch('/api/research/search', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${getToken()}`
+                    },
+                    body: JSON.stringify({
+                        query,
+                        search_type: 'general',
+                        language: 'pl',
+                        max_results: 10
+                    })
+                });
+                
+                if (!response.ok) throw new Error('Web search failed');
+                return await response.json();
+            } catch (error) {
+                console.error('Web search error:', error);
+                return {
+                    results: [],
+                    total_found: 0,
+                    search_time: 0.0,
+                    suggestions: [],
+                    related_queries: []
+                };
+            }
+        }
+        
+        function getCurrentUserId() {
+            return localStorage.getItem('user_id') || 'anonymous';
+        }
+        
+        function getTimeOfDay() {
+            const hour = new Date().getHours();
+            if (hour >= 6 && hour < 12) return 'morning';
+            if (hour >= 12 && hour < 18) return 'afternoon';
+            return 'evening';
+        }
 
         function showTypingIndicator() {
             const typingDiv = document.createElement('div');
@@ -2764,7 +3004,7 @@
         // Initialize demo data
         setTimeout(() => {
             if (allMessages.length === 0) {
-                addMessage('ai', 'Cześć! Jestem Mordzix AI - twoim profesjonalnym asystentem AI. Mam 144 endpointy API i mogę pomóc Ci w wielu zadaniach. Jak mogę Ci pomóc?', false);
+                addMessage('ai', 'Cześć! Jestem Mordzix AI - twoim profesjonalnym asystentem AI. Mam 69 endpointów API i mogę pomóc Ci w wielu zadaniach. Jak mogę Ci pomóc?', false);
             }
         }, 1000);
     </script>
