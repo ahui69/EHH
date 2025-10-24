@@ -30,3 +30,43 @@ async def ui_token(req: Request):
         return {"ok": True, "token": token}
 
     raise HTTPException(status_code=403, detail="UI token not exposed")
+
+
+@router.get("/ui")
+async def ui_manifest(req: Request):
+    """Return frontend manifest and optionally AUTH token.
+
+    Front w `index.html` oczekuje endpointu `/api/internal/ui` zwracającego
+    przynajmniej pole `manifest` z mapą kluczowych endpointów oraz opcjonalnie
+    `token` do uwierzytelnienia żądań.
+    """
+    expose_flag = os.getenv("UI_EXPOSE_TOKEN", "0") == "1"
+    token = os.getenv("AUTH_TOKEN", "ssjjMijaja6969")
+
+    # Determine client IP (may be None in some test contexts)
+    try:
+        client_host = req.client.host
+    except Exception:
+        client_host = None
+
+    is_local = client_host in ("127.0.0.1", "::1", "localhost")
+
+    manifest = {
+        "chat": "/api/chat/assistant",
+        "chat_stream": "/api/chat/assistant/stream",
+        "files_upload": "/api/files/upload",
+        "psyche_observe": "/api/psyche/observe",
+        "psyche_status": "/api/psyche/status",
+        "tts_speak": "/api/tts/speak",
+        "research_search": "/api/research/search",
+    }
+
+    resp = {
+        "ok": True,
+        "manifest": manifest,
+    }
+
+    if expose_flag or is_local:
+        resp["token"] = token
+
+    return resp
