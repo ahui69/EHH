@@ -104,8 +104,8 @@ OTM_API_KEY = os.getenv("OTM_API_KEY", "")
 # ═══════════════════════════════════════════════════════════════════
 
 try:
-    from prompt import SYSTEM_PROMPT as MORDZIX_SYSTEM_PROMPT
-    print("[OK] Mordzix persona loaded from prompt.py")
+    from .prompt import SYSTEM_PROMPT as MORDZIX_SYSTEM_PROMPT
+    print("[OK] Mordzix persona loaded from core/prompt.py")
 except ImportError:
     MORDZIX_SYSTEM_PROMPT = """
 🎭 JESTEŚ MORDZIX - ULTRA ZIOMALSKI AI-PRZYJACIEL 🎭
