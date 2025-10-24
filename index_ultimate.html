@@ -1159,6 +1159,34 @@
                     <span class="nav-icon">🧠</span>
                     Memory
                 </a>
+                <a href="#" class="nav-item" data-section="ai-audio">
+                    <span class="nav-icon">🎤</span>
+                    AI Audio
+                </a>
+                <a href="#" class="nav-item" data-section="ai-vision">
+                    <span class="nav-icon">👁️</span>
+                    AI Vision
+                </a>
+                <a href="#" class="nav-item" data-section="ai-documents">
+                    <span class="nav-icon">📄</span>
+                    AI Documents
+                </a>
+                <a href="#" class="nav-item" data-section="ai-mood">
+                    <span class="nav-icon">😊</span>
+                    AI Mood
+                </a>
+                <a href="#" class="nav-item" data-section="ai-travel">
+                    <span class="nav-icon">✈️</span>
+                    AI Travel
+                </a>
+                <a href="#" class="nav-item" data-section="ai-fashion">
+                    <span class="nav-icon">👗</span>
+                    AI Fashion
+                </a>
+                <a href="#" class="nav-item" data-section="ai-auction">
+                    <span class="nav-icon">🔨</span>
+                    AI Auction
+                </a>
             </div>
             
             <div class="sidebar-section">
@@ -1650,6 +1678,27 @@
                 case 'memory':
                     showMemoryInterface();
                     break;
+                case 'ai-audio':
+                    showAIAudioInterface();
+                    break;
+                case 'ai-vision':
+                    showAIVisionInterface();
+                    break;
+                case 'ai-documents':
+                    showAIDocumentsInterface();
+                    break;
+                case 'ai-mood':
+                    showAIMoodInterface();
+                    break;
+                case 'ai-travel':
+                    showAITravelInterface();
+                    break;
+                case 'ai-fashion':
+                    showAIFashionInterface();
+                    break;
+                case 'ai-auction':
+                    showAIAuctionInterface();
+                    break;
             }
         }
 
@@ -1692,6 +1741,41 @@
 
         function showMemoryInterface() {
             messageInput.placeholder = "Memory: What would you like me to remember?";
+        }
+
+        function showAIAudioInterface() {
+            messageInput.placeholder = "AI Audio: Upload audio file for transcription...";
+            showNotification('AI Audio: Upload audio files for transcription and analysis', 'info');
+        }
+
+        function showAIVisionInterface() {
+            messageInput.placeholder = "AI Vision: Upload image for captioning and analysis...";
+            showNotification('AI Vision: Upload images for captioning and visual analysis', 'info');
+        }
+
+        function showAIDocumentsInterface() {
+            messageInput.placeholder = "AI Documents: Search in your documents...";
+            showNotification('AI Documents: Semantic search in your document collection', 'info');
+        }
+
+        function showAIMoodInterface() {
+            messageInput.placeholder = "AI Mood: Tell me how you're feeling...";
+            showNotification('AI Mood: Share your thoughts for mood analysis and suggestions', 'info');
+        }
+
+        function showAITravelInterface() {
+            messageInput.placeholder = "AI Travel: Where would you like to go?";
+            showNotification('AI Travel: Plan your perfect trip with AI assistance', 'info');
+        }
+
+        function showAIFashionInterface() {
+            messageInput.placeholder = "AI Fashion: What outfit do you need?";
+            showNotification('AI Fashion: Get outfit suggestions and fashion advice', 'info');
+        }
+
+        function showAIAuctionInterface() {
+            messageInput.placeholder = "AI Auction: Describe your item for price prediction...";
+            showNotification('AI Auction: Optimize your auctions with AI predictions', 'info');
         }
 
         function showAnalytics() {
@@ -1888,7 +1972,10 @@
             try {
                 let response;
                 
-                if (currentFile) {
+                // Handle AI-specific sections
+                if (currentSection.startsWith('ai-')) {
+                    response = await handleAISection(currentSection, text, currentFile);
+                } else if (currentFile) {
                     // Upload file first
                     const formData = new FormData();
                     formData.append('file', currentFile);
@@ -1946,6 +2033,15 @@
                     addMessage('ai', data.text);
                 } else {
                     addMessage('ai', 'Przepraszam, wystąpił błąd. Spróbuj ponownie.');
+                }
+
+                // Learn from interaction
+                if (settings.memory) {
+                    await learnFromInteraction('chat', {
+                        message: text,
+                        section: currentSection,
+                        response: data.answer || data.text
+                    });
                 }
 
                 // Auto-save conversation
@@ -2021,6 +2117,406 @@
             
             chatMessages.appendChild(messageDiv);
             scrollToBottom();
+        }
+
+        // Handle AI-specific sections
+        async function handleAISection(section, text, file) {
+            try {
+                switch(section) {
+                    case 'ai-audio':
+                        if (file && file.type.startsWith('audio/')) {
+                            const result = await transcribeAudio(file);
+                            return {
+                                ok: true,
+                                text: `Transkrypcja audio:\n\n${result.text}\n\nPewność: ${(result.confidence * 100).toFixed(1)}%`
+                            };
+                        } else {
+                            return {
+                                ok: true,
+                                text: 'Prześlij plik audio aby rozpocząć transkrypcję. Obsługiwane formaty: MP3, WAV, M4A, OGG, FLAC.'
+                            };
+                        }
+                    
+                    case 'ai-vision':
+                        if (file && file.type.startsWith('image/')) {
+                            const result = await captionImage(file);
+                            return {
+                                ok: true,
+                                text: `Opis obrazu:\n\n${result.caption}\n\nPewność: ${(result.confidence * 100).toFixed(1)}%\n\nTagi: ${result.tags.join(', ')}`
+                            };
+                        } else {
+                            return {
+                                ok: true,
+                                text: 'Prześlij obraz aby wygenerować opis. Obsługiwane formaty: JPG, PNG, GIF, BMP, WEBP.'
+                            };
+                        }
+                    
+                    case 'ai-documents':
+                        if (text) {
+                            // Simulate document search
+                            const result = await searchDocuments(text, ['Dokument 1', 'Dokument 2', 'Dokument 3']);
+                            return {
+                                ok: true,
+                                text: `Wyniki wyszukiwania w dokumentach:\n\nZnaleziono: ${result.total_found} wyników\n\n${result.results.map(r => `• ${r.title}: ${r.excerpt}`).join('\n\n')}`
+                            };
+                        } else {
+                            return {
+                                ok: true,
+                                text: 'Wpisz zapytanie aby wyszukać w dokumentach. Przykład: "znajdź informacje o AI"'
+                            };
+                        }
+                    
+                    case 'ai-mood':
+                        if (text) {
+                            const result = await detectMood(text);
+                            return {
+                                ok: true,
+                                text: `Analiza nastroju:\n\nNastrój: ${result.mood}\nPewność: ${(result.confidence * 100).toFixed(1)}%\n\nEmocje:\n${Object.entries(result.emotions).map(([emotion, value]) => `• ${emotion}: ${(value * 100).toFixed(1)}%`).join('\n')}\n\nSugestie:\n${result.suggestions.map(s => `• ${s}`).join('\n')}`
+                            };
+                        } else {
+                            return {
+                                ok: true,
+                                text: 'Opisz jak się czujesz aby przeanalizować Twój nastrój. Przykład: "Jestem zmęczony i zestresowany"'
+                            };
+                        }
+                    
+                    case 'ai-travel':
+                        if (text) {
+                            // Extract travel info from text
+                            const destination = text.split(' ')[0]; // Simple extraction
+                            const result = await planTravel(destination, 2000, 7, { interests: ['kultura', 'jedzenie'] });
+                            return {
+                                ok: true,
+                                text: `Plan podróży do ${destination}:\n\n${JSON.stringify(result.plan, null, 2)}\n\nBudżet:\n${Object.entries(result.budget_breakdown).map(([key, value]) => `• ${key}: ${value} PLN`).join('\n')}\n\nRekomendacje:\n${result.recommendations.map(r => `• ${r}`).join('\n')}`
+                            };
+                        } else {
+                            return {
+                                ok: true,
+                                text: 'Opisz gdzie chcesz pojechać aby zaplanować podróż. Przykład: "Paryż na 7 dni z budżetem 2000 PLN"'
+                            };
+                        }
+                    
+                    case 'ai-fashion':
+                        if (text) {
+                            const result = await generateOutfit('casual', 'umiarkowane', { style: 'minimalistyczny' });
+                            return {
+                                ok: true,
+                                text: `Sugestie stylizacji:\n\n${result.outfits.map((outfit, i) => `Stylizacja ${i+1}:\n• ${outfit.items.join('\n• ')}\n• Kolory: ${outfit.colors.join(', ')}`).join('\n\n')}\n\nRekomendacje:\n${result.recommendations.map(r => `• ${r}`).join('\n')}`
+                            };
+                        } else {
+                            return {
+                                ok: true,
+                                text: 'Opisz okazję i pogodę aby otrzymać sugestie stylizacji. Przykład: "casual na umiarkowaną pogodę"'
+                            };
+                        }
+                    
+                    case 'ai-auction':
+                        if (text) {
+                            const result = await predictAuctionPrice(null, text, 'elektronika', 'używany');
+                            return {
+                                ok: true,
+                                text: `Przewidywana cena aukcji:\n\nCena: ${result.predicted_price.toFixed(2)} PLN\nZakres: ${result.price_range.min.toFixed(2)} - ${result.price_range.max.toFixed(2)} PLN\nPewność: ${(result.confidence * 100).toFixed(1)}%\n\nCzynniki:\n${result.factors.map(f => `• ${f}`).join('\n')}`
+                            };
+                        } else {
+                            return {
+                                ok: true,
+                                text: 'Opisz przedmiot aby przewidzieć cenę aukcji. Przykład: "iPhone 12 w dobrym stanie"'
+                            };
+                        }
+                    
+                    default:
+                        return {
+                            ok: true,
+                            text: 'Nieznana sekcja AI. Spróbuj ponownie.'
+                        };
+                }
+            } catch (error) {
+                console.error('AI section handling error:', error);
+                return {
+                    ok: false,
+                    text: 'Błąd przetwarzania sekcji AI. Spróbuj ponownie.'
+                };
+            }
+        }
+
+        // Advanced AI Functions
+        async function transcribeAudio(audioFile) {
+            try {
+                const formData = new FormData();
+                formData.append('audio_file', audioFile);
+                
+                const response = await fetch('/api/ai/transcribe', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const data = await response.json();
+                return data;
+            } catch (error) {
+                console.error('Audio transcription error:', error);
+                return { text: 'Błąd transkrypcji audio', confidence: 0 };
+            }
+        }
+
+        async function captionImage(imageFile) {
+            try {
+                const formData = new FormData();
+                formData.append('image_file', imageFile);
+                
+                const response = await fetch('/api/ai/caption', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const data = await response.json();
+                return data;
+            } catch (error) {
+                console.error('Image captioning error:', error);
+                return { caption: 'Błąd analizy obrazu', confidence: 0 };
+            }
+        }
+
+        async function searchDocuments(query, documents) {
+            try {
+                const response = await fetch('/api/ai/doc-search', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        query: query,
+                        documents: documents,
+                        max_results: 10,
+                        similarity_threshold: 0.7
+                    })
+                });
+                
+                const data = await response.json();
+                return data;
+            } catch (error) {
+                console.error('Document search error:', error);
+                return { results: [], total_found: 0 };
+            }
+        }
+
+        async function detectMood(text, context = null) {
+            try {
+                const response = await fetch('/api/ai/mood', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        text: text,
+                        context: context
+                    })
+                });
+                
+                const data = await response.json();
+                return data;
+            } catch (error) {
+                console.error('Mood detection error:', error);
+                return { mood: 'neutralny', confidence: 0 };
+            }
+        }
+
+        async function planTravel(destination, budget, duration, preferences) {
+            try {
+                const response = await fetch('/api/ai/travel-plan', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        destination: destination,
+                        budget: budget,
+                        duration_days: duration,
+                        preferences: preferences,
+                        travel_style: 'balanced'
+                    })
+                });
+                
+                const data = await response.json();
+                return data;
+            } catch (error) {
+                console.error('Travel planning error:', error);
+                return { plan: {}, budget_breakdown: {} };
+            }
+        }
+
+        async function generateOutfit(occasion, weather, stylePreferences) {
+            try {
+                const response = await fetch('/api/ai/outfit-gen', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        occasion: occasion,
+                        weather: weather,
+                        style_preferences: stylePreferences
+                    })
+                });
+                
+                const data = await response.json();
+                return data;
+            } catch (error) {
+                console.error('Outfit generation error:', error);
+                return { outfits: [], recommendations: [] };
+            }
+        }
+
+        async function predictAuctionPrice(imageFile, description, category, condition) {
+            try {
+                const formData = new FormData();
+                formData.append('image_file', imageFile);
+                formData.append('description', description);
+                formData.append('category', category);
+                formData.append('condition', condition);
+                
+                const response = await fetch('/api/ai/auction-price', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const data = await response.json();
+                return data;
+            } catch (error) {
+                console.error('Auction price prediction error:', error);
+                return { predicted_price: 0, confidence: 0 };
+            }
+        }
+
+        async function optimizeAuctionDescription(title, description, category, images) {
+            try {
+                const response = await fetch('/api/ai/auction-desc-optimize', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        title: title,
+                        description: description,
+                        category: category,
+                        images: images
+                    })
+                });
+                
+                const data = await response.json();
+                return data;
+            } catch (error) {
+                console.error('Auction description optimization error:', error);
+                return { optimized_title: title, optimized_description: description };
+            }
+        }
+
+        async function enhanceAuctionImage(imageFile, enhancements) {
+            try {
+                const formData = new FormData();
+                formData.append('image_file', imageFile);
+                formData.append('enhancements', JSON.stringify(enhancements));
+                
+                const response = await fetch('/api/ai/auction-image-enhance', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const data = await response.json();
+                return data;
+            } catch (error) {
+                console.error('Auction image enhancement error:', error);
+                return { enhanced_image: imageFile, quality_score: 0 };
+            }
+        }
+
+        async function forecastFashionTrends(category, timeframe, region = 'global') {
+            try {
+                const response = await fetch('/api/ai/fashion-forecast', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        category: category,
+                        timeframe: timeframe,
+                        region: region
+                    })
+                });
+                
+                const data = await response.json();
+                return data;
+            } catch (error) {
+                console.error('Fashion trend forecasting error:', error);
+                return { trends: [], confidence: 0 };
+            }
+        }
+
+        async function analyzeAuctionFeedback(feedbackText, rating, context) {
+            try {
+                const response = await fetch('/api/ai/auction-feedback', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        feedback_text: feedbackText,
+                        rating: rating,
+                        context: context
+                    })
+                });
+                
+                const data = await response.json();
+                return data;
+            } catch (error) {
+                console.error('Auction feedback analysis error:', error);
+                return { sentiment: 'neutralny', key_points: [] };
+            }
+        }
+
+        async function detectFashionBrand(imageFile, description = null) {
+            try {
+                const formData = new FormData();
+                formData.append('image_file', imageFile);
+                if (description) formData.append('description', description);
+                
+                const response = await fetch('/api/ai/fashion-brand', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const data = await response.json();
+                return data;
+            } catch (error) {
+                console.error('Fashion brand detection error:', error);
+                return { brand: 'Nieznana marka', confidence: 0 };
+            }
+        }
+
+        async function optimizeAuctionTiming(category, itemValue, urgency = 'normal') {
+            try {
+                const response = await fetch('/api/ai/auction-time', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        category: category,
+                        item_value: itemValue,
+                        urgency: urgency
+                    })
+                });
+                
+                const data = await response.json();
+                return data;
+            } catch (error) {
+                console.error('Auction timing optimization error:', error);
+                return { best_times: [], recommendations: [] };
+            }
+        }
+
+        async function learnFromInteraction(interactionType, data, feedback = null) {
+            try {
+                const response = await fetch('/api/memory/learn', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        user_id: 'current_user', // In real app, get from auth
+                        interaction_type: interactionType,
+                        data: data,
+                        feedback: feedback
+                    })
+                });
+                
+                const result = await response.json();
+                return result;
+            } catch (error) {
+                console.error('Learning from interaction error:', error);
+                return { success: false };
+            }
         }
 
         function showTypingIndicator() {

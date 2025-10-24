@@ -24,4 +24,7 @@ aiosqlite==0.20.0
 prometheus-client==0.20.0
 spacy==3.7.5
 python-dotenv==1.0.0
+openai==1.35.0
+sentence-transformers==3.0.1
+scikit-learn==1.4.2
 # spaCy language models are installed separately via: python -m spacy download pl_core_news_sm download pl_core_news_sm

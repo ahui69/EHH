@@ -48,6 +48,16 @@ from core.calendar import CalendarManager
 from core.todo import TodoManager
 from core.notes import NotesManager
 from core.bookmarks import BookmarksManager
+
+# Advanced AI imports
+from core.advanced_learning import AdvancedLearningManager
+from core.ai_audio import AIAudioManager
+from core.ai_vision import AIVisionManager
+from core.ai_documents import AIDocumentsManager
+from core.ai_mood import AIMoodManager
+from core.ai_travel import AITravelManager
+from core.ai_fashion import AIFashionManager
+from core.ai_auction import AIAuctionManager
 from core.password import PasswordManager
 from core.qr import QRManager
 from core.barcode import BarcodeManager
@@ -235,6 +245,16 @@ calendar_manager = CalendarManager()
 todo_manager = TodoManager()
 notes_manager = NotesManager()
 bookmarks_manager = BookmarksManager()
+
+# Advanced AI managers
+advanced_learning_manager = AdvancedLearningManager()
+ai_audio_manager = AIAudioManager()
+ai_vision_manager = AIVisionManager()
+ai_documents_manager = AIDocumentsManager()
+ai_mood_manager = AIMoodManager()
+ai_travel_manager = AITravelManager()
+ai_fashion_manager = AIFashionManager()
+ai_auction_manager = AIAuctionManager()
 password_manager = PasswordManager()
 qr_manager = QRManager()
 barcode_manager = BarcodeManager()
@@ -405,6 +425,167 @@ class SettingsResponse(BaseModel):
     settings: Dict[str, Any]
     version: str
     environment: str
+
+# Advanced AI Models
+class AudioTranscriptionRequest(BaseModel):
+    audio_file: str
+    language: str = "pl"
+    model: str = "whisper-1"
+
+class AudioTranscriptionResponse(BaseModel):
+    text: str
+    confidence: float
+    language: str
+    duration: float
+    timestamp: str
+
+class ImageCaptionRequest(BaseModel):
+    image_file: str
+    style: str = "descriptive"
+    language: str = "pl"
+
+class ImageCaptionResponse(BaseModel):
+    caption: str
+    confidence: float
+    tags: List[str]
+    timestamp: str
+
+class DocumentSearchRequest(BaseModel):
+    query: str
+    documents: List[str]
+    max_results: int = 10
+    similarity_threshold: float = 0.7
+
+class DocumentSearchResponse(BaseModel):
+    results: List[Dict[str, Any]]
+    total_found: int
+    query: str
+    timestamp: str
+
+class MoodDetectionRequest(BaseModel):
+    text: str
+    context: Optional[str] = None
+
+class MoodDetectionResponse(BaseModel):
+    mood: str
+    confidence: float
+    emotions: Dict[str, float]
+    suggestions: List[str]
+    timestamp: str
+
+class TravelPlanRequest(BaseModel):
+    destination: str
+    budget: float
+    duration_days: int
+    preferences: Dict[str, Any]
+    travel_style: str = "balanced"
+
+class TravelPlanResponse(BaseModel):
+    plan: Dict[str, Any]
+    budget_breakdown: Dict[str, float]
+    recommendations: List[str]
+    timestamp: str
+
+class OutfitGenerationRequest(BaseModel):
+    occasion: str
+    weather: str
+    style_preferences: Dict[str, Any]
+    image_files: Optional[List[str]] = None
+
+class OutfitGenerationResponse(BaseModel):
+    outfits: List[Dict[str, Any]]
+    recommendations: List[str]
+    timestamp: str
+
+class AuctionPriceRequest(BaseModel):
+    image_file: str
+    description: str
+    category: str
+    condition: str
+
+class AuctionPriceResponse(BaseModel):
+    predicted_price: float
+    price_range: Dict[str, float]
+    confidence: float
+    factors: List[str]
+    timestamp: str
+
+class AuctionDescriptionRequest(BaseModel):
+    title: str
+    description: str
+    category: str
+    images: List[str]
+
+class AuctionDescriptionResponse(BaseModel):
+    optimized_title: str
+    optimized_description: str
+    seo_score: float
+    suggestions: List[str]
+    timestamp: str
+
+class AuctionImageRequest(BaseModel):
+    image_file: str
+    enhancements: List[str]
+
+class AuctionImageResponse(BaseModel):
+    enhanced_image: str
+    improvements: List[str]
+    quality_score: float
+    timestamp: str
+
+class FashionTrendRequest(BaseModel):
+    category: str
+    timeframe: str
+    region: str = "global"
+
+class FashionTrendResponse(BaseModel):
+    trends: List[Dict[str, Any]]
+    confidence: float
+    sources: List[str]
+    timestamp: str
+
+class AuctionFeedbackRequest(BaseModel):
+    feedback_text: str
+    rating: int
+    context: str
+
+class AuctionFeedbackResponse(BaseModel):
+    sentiment: str
+    key_points: List[str]
+    suggestions: List[str]
+    timestamp: str
+
+class FashionBrandRequest(BaseModel):
+    image_file: str
+    description: Optional[str] = None
+
+class FashionBrandResponse(BaseModel):
+    brand: str
+    confidence: float
+    alternatives: List[str]
+    timestamp: str
+
+class AuctionTimeRequest(BaseModel):
+    category: str
+    item_value: float
+    urgency: str = "normal"
+
+class AuctionTimeResponse(BaseModel):
+    best_times: List[Dict[str, Any]]
+    recommendations: List[str]
+    timestamp: str
+
+class LearningDataRequest(BaseModel):
+    user_id: str
+    interaction_type: str
+    data: Dict[str, Any]
+    feedback: Optional[Dict[str, Any]] = None
+
+class LearningDataResponse(BaseModel):
+    success: bool
+    insights: Dict[str, Any]
+    recommendations: List[str]
+    timestamp: str
 
 # Dependency functions
 async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)):
@@ -1090,6 +1271,307 @@ async def get_performance_analytics(user=Depends(get_current_user)):
     except Exception as e:
         logger.error(f"Failed to get performance analytics: {e}")
         raise HTTPException(status_code=500, detail="Failed to get performance analytics")
+
+# Advanced AI Endpoints
+
+# AI Audio Transcription
+@app.post("/api/ai/transcribe", response_model=AudioTranscriptionResponse)
+async def transcribe_audio(request: AudioTranscriptionRequest, user=Depends(get_current_user)):
+    """Transcribe audio to text using AI"""
+    try:
+        result = await ai_audio_manager.transcribe_audio(
+            audio_file=request.audio_file,
+            language=request.language,
+            model=request.model,
+            user_id=user.get("id") if user else None
+        )
+        return AudioTranscriptionResponse(
+            text=result["text"],
+            confidence=result["confidence"],
+            language=result["language"],
+            duration=result["duration"],
+            timestamp=datetime.now().isoformat()
+        )
+    except Exception as e:
+        logger.error(f"Audio transcription error: {e}")
+        raise HTTPException(status_code=500, detail="Audio transcription failed")
+
+# AI Image Captioning
+@app.post("/api/ai/caption", response_model=ImageCaptionResponse)
+async def caption_image(request: ImageCaptionRequest, user=Depends(get_current_user)):
+    """Generate AI caption for image"""
+    try:
+        result = await ai_vision_manager.caption_image(
+            image_file=request.image_file,
+            style=request.style,
+            language=request.language,
+            user_id=user.get("id") if user else None
+        )
+        return ImageCaptionResponse(
+            caption=result["caption"],
+            confidence=result["confidence"],
+            tags=result["tags"],
+            timestamp=datetime.now().isoformat()
+        )
+    except Exception as e:
+        logger.error(f"Image captioning error: {e}")
+        raise HTTPException(status_code=500, detail="Image captioning failed")
+
+# AI Document Search
+@app.post("/api/ai/doc-search", response_model=DocumentSearchResponse)
+async def search_documents(request: DocumentSearchRequest, user=Depends(get_current_user)):
+    """Semantic search in documents"""
+    try:
+        result = await ai_documents_manager.search_documents(
+            query=request.query,
+            documents=request.documents,
+            max_results=request.max_results,
+            similarity_threshold=request.similarity_threshold,
+            user_id=user.get("id") if user else None
+        )
+        return DocumentSearchResponse(
+            results=result["results"],
+            total_found=result["total_found"],
+            query=request.query,
+            timestamp=datetime.now().isoformat()
+        )
+    except Exception as e:
+        logger.error(f"Document search error: {e}")
+        raise HTTPException(status_code=500, detail="Document search failed")
+
+# AI Mood Detection
+@app.post("/api/ai/mood", response_model=MoodDetectionResponse)
+async def detect_mood(request: MoodDetectionRequest, user=Depends(get_current_user)):
+    """Detect user mood from text"""
+    try:
+        result = await ai_mood_manager.detect_mood(
+            text=request.text,
+            context=request.context,
+            user_id=user.get("id") if user else None
+        )
+        return MoodDetectionResponse(
+            mood=result["mood"],
+            confidence=result["confidence"],
+            emotions=result["emotions"],
+            suggestions=result["suggestions"],
+            timestamp=datetime.now().isoformat()
+        )
+    except Exception as e:
+        logger.error(f"Mood detection error: {e}")
+        raise HTTPException(status_code=500, detail="Mood detection failed")
+
+# AI Travel Planner
+@app.post("/api/ai/travel-plan", response_model=TravelPlanResponse)
+async def plan_travel(request: TravelPlanRequest, user=Depends(get_current_user)):
+    """Generate personalized travel plan"""
+    try:
+        result = await ai_travel_manager.plan_travel(
+            destination=request.destination,
+            budget=request.budget,
+            duration_days=request.duration_days,
+            preferences=request.preferences,
+            travel_style=request.travel_style,
+            user_id=user.get("id") if user else None
+        )
+        return TravelPlanResponse(
+            plan=result["plan"],
+            budget_breakdown=result["budget_breakdown"],
+            recommendations=result["recommendations"],
+            timestamp=datetime.now().isoformat()
+        )
+    except Exception as e:
+        logger.error(f"Travel planning error: {e}")
+        raise HTTPException(status_code=500, detail="Travel planning failed")
+
+# AI Outfit Generator
+@app.post("/api/ai/outfit-gen", response_model=OutfitGenerationResponse)
+async def generate_outfit(request: OutfitGenerationRequest, user=Depends(get_current_user)):
+    """Generate outfit suggestions"""
+    try:
+        result = await ai_fashion_manager.generate_outfit(
+            occasion=request.occasion,
+            weather=request.weather,
+            style_preferences=request.style_preferences,
+            image_files=request.image_files,
+            user_id=user.get("id") if user else None
+        )
+        return OutfitGenerationResponse(
+            outfits=result["outfits"],
+            recommendations=result["recommendations"],
+            timestamp=datetime.now().isoformat()
+        )
+    except Exception as e:
+        logger.error(f"Outfit generation error: {e}")
+        raise HTTPException(status_code=500, detail="Outfit generation failed")
+
+# AI Auction Price Predictor
+@app.post("/api/ai/auction-price", response_model=AuctionPriceResponse)
+async def predict_auction_price(request: AuctionPriceRequest, user=Depends(get_current_user)):
+    """Predict optimal auction price"""
+    try:
+        result = await ai_auction_manager.predict_price(
+            image_file=request.image_file,
+            description=request.description,
+            category=request.category,
+            condition=request.condition,
+            user_id=user.get("id") if user else None
+        )
+        return AuctionPriceResponse(
+            predicted_price=result["predicted_price"],
+            price_range=result["price_range"],
+            confidence=result["confidence"],
+            factors=result["factors"],
+            timestamp=datetime.now().isoformat()
+        )
+    except Exception as e:
+        logger.error(f"Auction price prediction error: {e}")
+        raise HTTPException(status_code=500, detail="Auction price prediction failed")
+
+# AI Auction Description Optimizer
+@app.post("/api/ai/auction-desc-optimize", response_model=AuctionDescriptionResponse)
+async def optimize_auction_description(request: AuctionDescriptionRequest, user=Depends(get_current_user)):
+    """Optimize auction description for SEO"""
+    try:
+        result = await ai_auction_manager.optimize_description(
+            title=request.title,
+            description=request.description,
+            category=request.category,
+            images=request.images,
+            user_id=user.get("id") if user else None
+        )
+        return AuctionDescriptionResponse(
+            optimized_title=result["optimized_title"],
+            optimized_description=result["optimized_description"],
+            seo_score=result["seo_score"],
+            suggestions=result["suggestions"],
+            timestamp=datetime.now().isoformat()
+        )
+    except Exception as e:
+        logger.error(f"Auction description optimization error: {e}")
+        raise HTTPException(status_code=500, detail="Auction description optimization failed")
+
+# AI Auction Image Enhancer
+@app.post("/api/ai/auction-image-enhance", response_model=AuctionImageResponse)
+async def enhance_auction_image(request: AuctionImageRequest, user=Depends(get_current_user)):
+    """Enhance auction images"""
+    try:
+        result = await ai_auction_manager.enhance_image(
+            image_file=request.image_file,
+            enhancements=request.enhancements,
+            user_id=user.get("id") if user else None
+        )
+        return AuctionImageResponse(
+            enhanced_image=result["enhanced_image"],
+            improvements=result["improvements"],
+            quality_score=result["quality_score"],
+            timestamp=datetime.now().isoformat()
+        )
+    except Exception as e:
+        logger.error(f"Auction image enhancement error: {e}")
+        raise HTTPException(status_code=500, detail="Auction image enhancement failed")
+
+# AI Fashion Trend Forecaster
+@app.post("/api/ai/fashion-forecast", response_model=FashionTrendResponse)
+async def forecast_fashion_trends(request: FashionTrendRequest, user=Depends(get_current_user)):
+    """Forecast fashion trends"""
+    try:
+        result = await ai_fashion_manager.forecast_trends(
+            category=request.category,
+            timeframe=request.timeframe,
+            region=request.region,
+            user_id=user.get("id") if user else None
+        )
+        return FashionTrendResponse(
+            trends=result["trends"],
+            confidence=result["confidence"],
+            sources=result["sources"],
+            timestamp=datetime.now().isoformat()
+        )
+    except Exception as e:
+        logger.error(f"Fashion trend forecasting error: {e}")
+        raise HTTPException(status_code=500, detail="Fashion trend forecasting failed")
+
+# AI Auction Feedback Analyzer
+@app.post("/api/ai/auction-feedback", response_model=AuctionFeedbackResponse)
+async def analyze_auction_feedback(request: AuctionFeedbackRequest, user=Depends(get_current_user)):
+    """Analyze auction feedback"""
+    try:
+        result = await ai_auction_manager.analyze_feedback(
+            feedback_text=request.feedback_text,
+            rating=request.rating,
+            context=request.context,
+            user_id=user.get("id") if user else None
+        )
+        return AuctionFeedbackResponse(
+            sentiment=result["sentiment"],
+            key_points=result["key_points"],
+            suggestions=result["suggestions"],
+            timestamp=datetime.now().isoformat()
+        )
+    except Exception as e:
+        logger.error(f"Auction feedback analysis error: {e}")
+        raise HTTPException(status_code=500, detail="Auction feedback analysis failed")
+
+# AI Fashion Brand Detector
+@app.post("/api/ai/fashion-brand", response_model=FashionBrandResponse)
+async def detect_fashion_brand(request: FashionBrandRequest, user=Depends(get_current_user)):
+    """Detect fashion brand from image"""
+    try:
+        result = await ai_fashion_manager.detect_brand(
+            image_file=request.image_file,
+            description=request.description,
+            user_id=user.get("id") if user else None
+        )
+        return FashionBrandResponse(
+            brand=result["brand"],
+            confidence=result["confidence"],
+            alternatives=result["alternatives"],
+            timestamp=datetime.now().isoformat()
+        )
+    except Exception as e:
+        logger.error(f"Fashion brand detection error: {e}")
+        raise HTTPException(status_code=500, detail="Fashion brand detection failed")
+
+# AI Auction Time Optimizer
+@app.post("/api/ai/auction-time", response_model=AuctionTimeResponse)
+async def optimize_auction_time(request: AuctionTimeRequest, user=Depends(get_current_user)):
+    """Optimize auction timing"""
+    try:
+        result = await ai_auction_manager.optimize_timing(
+            category=request.category,
+            item_value=request.item_value,
+            urgency=request.urgency,
+            user_id=user.get("id") if user else None
+        )
+        return AuctionTimeResponse(
+            best_times=result["best_times"],
+            recommendations=result["recommendations"],
+            timestamp=datetime.now().isoformat()
+        )
+    except Exception as e:
+        logger.error(f"Auction time optimization error: {e}")
+        raise HTTPException(status_code=500, detail="Auction time optimization failed")
+
+# Advanced Learning System
+@app.post("/api/memory/learn", response_model=LearningDataResponse)
+async def learn_from_interaction(request: LearningDataRequest, user=Depends(get_current_user)):
+    """Learn from user interactions"""
+    try:
+        result = await advanced_learning_manager.learn_from_interaction(
+            user_id=request.user_id,
+            interaction_type=request.interaction_type,
+            data=request.data,
+            feedback=request.feedback
+        )
+        return LearningDataResponse(
+            success=result["success"],
+            insights=result["insights"],
+            recommendations=result["recommendations"],
+            timestamp=datetime.now().isoformat()
+        )
+    except Exception as e:
+        logger.error(f"Learning from interaction error: {e}")
+        raise HTTPException(status_code=500, detail="Learning from interaction failed")
 
 # Internal endpoints
 @app.get("/api/internal/ui")
