@@ -63,6 +63,11 @@ from core.ai_auction import AIAuctionManager
 import psyche_endpoint
 import autonauka_pro
 import proactive_suggestions
+
+# Restored critical imports
+import psyche_endpoint
+import autonauka_pro
+import proactive_suggestions
 from core.password import PasswordManager
 from core.qr import QRManager
 from core.barcode import BarcodeManager
@@ -807,6 +812,29 @@ async def chat_assistant(request: ChatRequest, user=Depends(get_current_user)):
             file_id=request.file_id,
             user_id=user.get("id") if user else None
         )
+        
+        # REAL-TIME LEARNING - Learn from every interaction
+        try:
+            learning_data = {
+                "user_id": user.get("id") if user else "anonymous",
+                "interaction_type": "chat",
+                "input_data": request.message,
+                "output_data": response["answer"],
+                "context": {
+                    "conversation_id": request.conversation_id,
+                    "model": request.model,
+                    "temperature": request.temperature,
+                    "max_tokens": request.max_tokens,
+                    "use_memory": request.use_memory
+                }
+            }
+            
+            # Send to autonauka for real-time learning
+            import requests
+            requests.post("http://localhost:8002/api/autonauka/learn", json=learning_data, timeout=1)
+            
+        except Exception as e:
+            logger.error(f"Real-time learning failed: {e}")
         
         return ChatResponse(
             answer=response["answer"],
@@ -1577,6 +1605,47 @@ async def learn_from_interaction(request: LearningDataRequest, user=Depends(get_
     except Exception as e:
         logger.error(f"Learning from interaction error: {e}")
         raise HTTPException(status_code=500, detail="Learning from interaction failed")
+
+# RESTORED CRITICAL ENDPOINTS
+
+# Psyche Analysis
+@app.post("/api/psyche/analyze")
+async def analyze_psyche(request: dict, user=Depends(get_current_user)):
+    """Analyze psychological state"""
+    try:
+        # Forward to psyche service
+        import requests
+        response = requests.post("http://localhost:8001/api/psyche/analyze", json=request)
+        return response.json()
+    except Exception as e:
+        logger.error(f"Psyche analysis error: {e}")
+        raise HTTPException(status_code=500, detail="Psyche analysis failed")
+
+# Autonauka Pro - Real-time Learning
+@app.post("/api/autonauka/learn")
+async def autonauka_learn(request: dict, user=Depends(get_current_user)):
+    """Real-time learning from interactions"""
+    try:
+        # Forward to autonauka service
+        import requests
+        response = requests.post("http://localhost:8002/api/autonauka/learn", json=request)
+        return response.json()
+    except Exception as e:
+        logger.error(f"Autonauka learning error: {e}")
+        raise HTTPException(status_code=500, detail="Autonauka learning failed")
+
+# Proactive Suggestions
+@app.post("/api/suggestions/generate")
+async def generate_suggestions(request: dict, user=Depends(get_current_user)):
+    """Generate proactive suggestions"""
+    try:
+        # Forward to suggestions service
+        import requests
+        response = requests.post("http://localhost:8003/api/suggestions/generate", json=request)
+        return response.json()
+    except Exception as e:
+        logger.error(f"Suggestions generation error: {e}")
+        raise HTTPException(status_code=500, detail="Suggestions generation failed")
 
 # RESTORED CRITICAL ENDPOINTS
 

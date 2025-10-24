@@ -176,6 +176,7 @@ class AutonaukaPro:
                 learning_data.user_id,
                 learning_data.interaction_type,
                 learning_data.input_data,
+                learning_data.output_data,
                 json.dumps(learning_data.context) if learning_data.context else None,
                 json.dumps(learning_data.feedback) if learning_data.feedback else None,
                 learning_data.timestamp
