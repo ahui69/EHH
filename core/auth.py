@@ -147,3 +147,21 @@ def verify_token(token: str) -> bool:
     if not AUTH_TOKEN:
         return True
     return hmac.compare_digest(token, AUTH_TOKEN)
+
+
+async def get_current_user(request: Request) -> Dict[str, Any]:
+    """
+    Get current user from request (dependency for endpoints)
+    
+    Args:
+        request: FastAPI Request
+        
+    Returns:
+        dict: User info {'user_id': str, 'ip': str, 'authenticated': bool}
+    """
+    authenticated = check_auth(request)
+    return {
+        "user_id": "default",
+        "ip": get_ip_address(request),
+        "authenticated": authenticated
+    }

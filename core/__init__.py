@@ -38,6 +38,16 @@ from .writing import *
 # Executor
 from .executor import *
 
+# Endpoints (for core/app.py imports)
+try:
+    from . import travel_endpoint
+    from . import memory_endpoint
+except ImportError as e:
+    import warnings
+    warnings.warn(f"Could not import endpoints: {e}")
+    travel_endpoint = None
+    memory_endpoint = None
+
 __version__ = "3.3.0"
 
 # Compatibility functions
@@ -62,7 +72,7 @@ __all__ = [
     "CONTEXT_DICTIONARIES", "FASHION", "PL_SYNONYMS", "PL_COLLOC",
     
     # Auth
-    "check_auth", "auth_dependency", "get_ip_address",
+    "check_auth", "auth_dependency", "get_ip_address", "get_current_user",
     
     # Helpers
     "log_info", "log_warning", "log_error",
