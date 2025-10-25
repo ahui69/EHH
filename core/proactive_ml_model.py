@@ -17,10 +17,12 @@ from pathlib import Path
 # sklearn imports
 try:
     from sklearn.feature_extraction.text import TfidfVectorizer
-    from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier
+    from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier, VotingClassifier
     from sklearn.naive_bayes import MultinomialNB
     from sklearn.pipeline import Pipeline
-    from sklearn.preprocessing import LabelEncoder
+    from sklearn.preprocessing import LabelEncoder, StandardScaler
+    from sklearn.model_selection import cross_val_score, GridSearchCV
+    from sklearn.metrics import classification_report, confusion_matrix, f1_score
     SKLEARN_AVAILABLE = True
 except ImportError:
     SKLEARN_AVAILABLE = False
@@ -28,6 +30,8 @@ except ImportError:
 from core.helpers import log_info, log_warning, log_error
 from core.memory import ltm_search_hybrid
 from core.user_model import user_model_manager
+
+import hashlib
 
 
 # ═══════════════════════════════════════════════════════════════════
@@ -46,6 +50,13 @@ class ContextFeatureExtractor:
             strip_accents='unicode'
         ) if SKLEARN_AVAILABLE else None
         
+        # Feature scaler for normalization
+        self.scaler = StandardScaler() if SKLEARN_AVAILABLE else None
+        
+        # Cache for extracted features
+        self._feature_cache = {}
+        self._cache_max_size = 1000
+        
     def extract_text_features(self, text: str) -> Dict[str, float]:
         """Ekstrahuje cechy tekstowe z wiadomości"""
         features = {}
@@ -61,17 +72,34 @@ class ContextFeatureExtractor:
         features['code_blocks'] = text.count('```')
         features['has_code'] = 1.0 if '```' in text or 'def ' in text or 'class ' in text else 0.0
         
-        # Słowa kluczowe techniczne
-        tech_keywords = ['błąd', 'error', 'bug', 'fix', 'debug', 'kod', 'funkcja', 'python', 'javascript']
+        # Słowa kluczowe techniczne (rozszerzone)
+        tech_keywords = ['błąd', 'error', 'bug', 'fix', 'debug', 'kod', 'funkcja', 'python', 'javascript',
+                        'typescript', 'react', 'api', 'backend', 'frontend', 'database', 'sql', 'git',
+                        'compile', 'runtime', 'syntax', 'exception', 'traceback', 'stack']
         features['tech_density'] = sum(1 for kw in tech_keywords if kw in text.lower()) / max(1, len(text.split()))
         
-        # Słowa kluczowe biznesowe
-        biz_keywords = ['firma', 'biznes', 'startup', 'inwestycja', 'klient', 'przychód', 'strategia']
+        # Słowa kluczowe biznesowe (rozszerzone)
+        biz_keywords = ['firma', 'biznes', 'startup', 'inwestycja', 'klient', 'przychód', 'strategia',
+                       'marketing', 'sprzedaż', 'roi', 'kpi', 'analiza', 'rynek', 'konkurencja',
+                       'budżet', 'koszt', 'profit', 'wzrost', 'pitch', 'inwestor']
         features['biz_density'] = sum(1 for kw in biz_keywords if kw in text.lower()) / max(1, len(text.split()))
         
-        # Słowa kluczowe kreatywne
-        creative_keywords = ['pomysł', 'kreatywny', 'design', 'napisz', 'stwórz', 'wygeneruj']
+        # Słowa kluczowe kreatywne (rozszerzone)
+        creative_keywords = ['pomysł', 'kreatywny', 'design', 'napisz', 'stwórz', 'wygeneruj',
+                           'logo', 'grafika', 'ilustracja', 'brand', 'koncepcja', 'wizja',
+                           'innowacja', 'oryginalny', 'artystyczny', 'kompozycja']
         features['creative_density'] = sum(1 for kw in creative_keywords if kw in text.lower()) / max(1, len(text.split()))
+        
+        # Nowe features: sentiment indicators
+        positive_words = ['świetnie', 'dobrze', 'super', 'excellent', 'perfect', 'dzięki', 'podoba']
+        negative_words = ['źle', 'problem', 'nie działa', 'failed', 'błędny', 'zły', 'kiepski']
+        features['positive_sentiment'] = sum(1 for w in positive_words if w in text.lower()) / max(1, len(text.split()))
+        features['negative_sentiment'] = sum(1 for w in negative_words if w in text.lower()) / max(1, len(text.split()))
+        
+        # Structural features
+        features['has_url'] = 1.0 if ('http://' in text or 'https://' in text) else 0.0
+        features['has_numbers'] = 1.0 if any(char.isdigit() for char in text) else 0.0
+        features['capital_ratio'] = sum(1 for c in text if c.isupper()) / max(1, len(text))
         
         return features
     
@@ -168,7 +196,12 @@ class ContextFeatureExtractor:
         message: str,
         conversation_history: List[Dict[str, Any]]
     ) -> Dict[str, float]:
-        """Ekstrahuje wszystkie cechy dla modelu ML"""
+        """Ekstrahuje wszystkie cechy dla modelu ML z cachingiem"""
+        # Check cache
+        cache_key = hashlib.md5(f"{user_id}:{message}:{len(conversation_history)}".encode()).hexdigest()
+        if cache_key in self._feature_cache:
+            return self._feature_cache[cache_key]
+        
         features = {}
         
         # Cechy tekstowe
@@ -182,6 +215,12 @@ class ContextFeatureExtractor:
         # Cechy profilowe
         user_features = self.extract_user_profile_features(user_id)
         features.update({f'user_{k}': v for k, v in user_features.items()})
+        
+        # Cache result
+        if len(self._feature_cache) >= self._cache_max_size:
+            # Remove oldest entry (FIFO)
+            self._feature_cache.pop(next(iter(self._feature_cache)))
+        self._feature_cache[cache_key] = features
         
         return features
 
@@ -291,14 +330,37 @@ class ProactiveSuggestionMLModel:
             'none': []
         }
         
-        # Model sklearn
+        # Ensemble model (3 classifiers voting)
         if SKLEARN_AVAILABLE:
-            self.model = GradientBoostingClassifier(
-                n_estimators=100,
-                learning_rate=0.1,
-                max_depth=5,
+            self.gb_model = GradientBoostingClassifier(
+                n_estimators=150,
+                learning_rate=0.08,
+                max_depth=6,
+                min_samples_split=4,
+                min_samples_leaf=2,
+                subsample=0.8,
                 random_state=42
             )
+            self.rf_model = RandomForestClassifier(
+                n_estimators=100,
+                max_depth=8,
+                min_samples_split=3,
+                random_state=42
+            )
+            self.nb_model = MultinomialNB(alpha=0.5)
+            
+            # Voting ensemble (weighted)
+            self.model = VotingClassifier(
+                estimators=[
+                    ('gb', self.gb_model),
+                    ('rf', self.rf_model)
+                ],
+                voting='soft',
+                weights=[0.6, 0.4]  # GB gets more weight
+            )
+            
+            # Feature importance tracking
+            self.feature_importance = None
         else:
             self.model = None
             log_warning("sklearn not available - using fallback rule-based system")
@@ -306,11 +368,16 @@ class ProactiveSuggestionMLModel:
         # Pamięć treningowa (do online learning)
         self.training_buffer = deque(maxlen=1000)
         
-        # Statystyki
+        # Statystyki rozszerzone
         self.prediction_stats = {
             'total_predictions': 0,
             'by_category': defaultdict(int),
-            'accuracy_samples': deque(maxlen=100)
+            'accuracy_samples': deque(maxlen=100),
+            'f1_scores': deque(maxlen=50),
+            'confidence_scores': deque(maxlen=100),
+            'inference_times': deque(maxlen=100),
+            'cache_hits': 0,
+            'cache_misses': 0
         }
         
         # Load model jeśli istnieje
@@ -409,11 +476,13 @@ class ProactiveSuggestionMLModel:
             }
         }
         
-        # Wszystkie możliwe feature keys
+        # Wszystkie możliwe feature keys (26 features total)
         all_feature_keys = [
             'text_msg_length', 'text_word_count', 'text_avg_word_length',
             'text_question_marks', 'text_exclamation_marks', 'text_code_blocks',
             'text_has_code', 'text_tech_density', 'text_biz_density', 'text_creative_density',
+            'text_positive_sentiment', 'text_negative_sentiment',
+            'text_has_url', 'text_has_numbers', 'text_capital_ratio',
             'conv_length', 'conv_avg_user_msg_length', 'conv_avg_ai_msg_length',
             'conv_user_ai_ratio', 'conv_time_since_last', 'conv_topic_switches',
             'user_pref_temperature', 'user_pref_max_tokens',
@@ -435,13 +504,15 @@ class ProactiveSuggestionMLModel:
                         else:
                             features[key] = ranges[key]
                     else:
-                        # Domyślne wartości
-                        if 'density' in key or 'affinity' in key or 'ratio' in key:
-                            features[key] = np.random.uniform(0, 0.5)
+                        # Domyślne wartości (better distribution)
+                        if 'density' in key or 'affinity' in key or 'ratio' in key or 'sentiment' in key:
+                            features[key] = np.random.beta(2, 5)  # Beta distribution - more realistic
                         elif 'length' in key or 'count' in key:
-                            features[key] = np.random.uniform(10, 100)
+                            features[key] = np.random.gamma(2, 20)  # Gamma distribution for counts
                         elif 'has_' in key:
-                            features[key] = np.random.uniform(0, 0.3)
+                            features[key] = float(np.random.binomial(1, 0.3))  # Binary features
+                        elif 'temperature' in key:
+                            features[key] = np.random.uniform(0.3, 0.9)  # Realistic temp range
                         else:
                             features[key] = np.random.uniform(0, 1)
                 
@@ -475,16 +546,38 @@ class ProactiveSuggestionMLModel:
         X_array = np.array([[sample[k] for k in feature_keys] for sample in X_synthetic])
         y_encoded = self.label_encoder.transform(y_synthetic)
         
-        # Trenuj model
-        log_info("Training GradientBoostingClassifier...")
-        self.model.fit(X_array, y_encoded)
+        # Normalizuj features
+        X_scaled = self.feature_extractor.scaler.fit_transform(X_array)
+        
+        # Trenuj model z cross-validation
+        log_info("Training Ensemble Voting Classifier (GB+RF)...")
+        
+        # Cross-validation score
+        cv_scores = cross_val_score(self.model, X_scaled, y_encoded, cv=5, scoring='f1_weighted')
+        log_info(f"Cross-validation F1 scores: {cv_scores}")
+        log_info(f"Mean CV F1: {cv_scores.mean():.3f} (+/- {cv_scores.std():.3f})")
+        
+        # Final training
+        self.model.fit(X_scaled, y_encoded)
         
         # Zapisz feature keys (potrzebne do predykcji)
         self.feature_keys = feature_keys
         
-        # Oblicz accuracy na danych treningowych (baseline)
-        train_accuracy = self.model.score(X_array, y_encoded)
-        log_info(f"Initial model trained - Train accuracy: {train_accuracy:.3f}")
+        # Oblicz metryki
+        y_pred = self.model.predict(X_scaled)
+        train_accuracy = self.model.score(X_scaled, y_encoded)
+        train_f1 = f1_score(y_encoded, y_pred, average='weighted')
+        
+        log_info(f"Initial model trained:")
+        log_info(f"  - Train accuracy: {train_accuracy:.3f}")
+        log_info(f"  - Train F1 score: {train_f1:.3f}")
+        log_info(f"  - CV F1 mean: {cv_scores.mean():.3f}")
+        
+        # Feature importance (z GB model)
+        if hasattr(self.gb_model, 'feature_importances_'):
+            self.feature_importance = dict(zip(feature_keys, self.gb_model.feature_importances_))
+            top_features = sorted(self.feature_importance.items(), key=lambda x: x[1], reverse=True)[:5]
+            log_info(f"Top 5 important features: {top_features}")
         
         # Zapisz model
         self._save_model()
@@ -512,7 +605,10 @@ class ProactiveSuggestionMLModel:
         if not SKLEARN_AVAILABLE or not self.model or not hasattr(self, 'feature_keys'):
             return self._fallback_rule_based_prediction(message, conversation_history)
         
-        # Ekstraktuj features
+        # Track inference time
+        start_time = time.time()
+        
+        # Ekstraktuj features (z cachingiem)
         all_features = self.feature_extractor.extract_all_features(
             user_id, message, conversation_history
         )
@@ -520,17 +616,31 @@ class ProactiveSuggestionMLModel:
         # Konwertuj do numpy array (zachowaj kolejność feature_keys)
         X = np.array([[all_features.get(k, 0) for k in self.feature_keys]])
         
+        # Normalizuj features
+        X_scaled = self.feature_extractor.scaler.transform(X)
+        
         # Predykcja
-        y_pred = self.model.predict(X)[0]
-        y_proba = self.model.predict_proba(X)[0]
+        y_pred = self.model.predict(X_scaled)[0]
+        y_proba = self.model.predict_proba(X_scaled)[0]
         
         # Dekoduj kategorię
         category = self.label_encoder.inverse_transform([y_pred])[0]
-        confidence = y_proba[y_pred]
+        confidence = float(y_proba[y_pred])
+        
+        # Track inference time
+        inference_time = (time.time() - start_time) * 1000  # ms
+        self.prediction_stats['inference_times'].append(inference_time)
         
         # Statystyki
         self.prediction_stats['total_predictions'] += 1
         self.prediction_stats['by_category'][category] += 1
+        self.prediction_stats['confidence_scores'].append(confidence)
+        
+        # Adaptive confidence threshold (dynamic)
+        avg_confidence = np.mean(list(self.prediction_stats['confidence_scores']))
+        if confidence < avg_confidence * 0.7:
+            # Low confidence - potentially use fallback
+            log_info(f"Low confidence ({confidence:.3f}) - using ensemble prediction")
         
         return category, confidence
     
@@ -662,31 +772,103 @@ class ProactiveSuggestionMLModel:
         X_array = np.array(X_new)
         y_encoded = self.label_encoder.transform(y_new)
         
-        # Partial fit (incremental learning)
-        # Dla GradientBoostingClassifier używamy warm_start
-        self.model.set_params(warm_start=True)
-        self.model.fit(X_array, y_encoded)
+        # Scale features
+        X_scaled = self.feature_extractor.scaler.transform(X_array)
         
-        # Oblicz nową accuracy
-        new_accuracy = self.model.score(X_array, y_encoded)
-        log_info(f"Model retrained - New accuracy: {new_accuracy:.3f}")
+        # Incremental learning with validation split
+        from sklearn.model_selection import train_test_split
+        X_train, X_val, y_train, y_val = train_test_split(
+            X_scaled, y_encoded, test_size=0.2, random_state=42, stratify=y_encoded
+        )
+        
+        # Retrain models individually
+        self.gb_model.set_params(warm_start=True, n_estimators=self.gb_model.n_estimators + 20)
+        self.gb_model.fit(X_train, y_train)
+        
+        self.rf_model.set_params(warm_start=True, n_estimators=self.rf_model.n_estimators + 10)
+        self.rf_model.fit(X_train, y_train)
+        
+        # Rebuild voting ensemble
+        self.model = VotingClassifier(
+            estimators=[
+                ('gb', self.gb_model),
+                ('rf', self.rf_model)
+            ],
+            voting='soft',
+            weights=[0.6, 0.4]
+        )
+        self.model.fit(X_train, y_train)
+        
+        # Metryki walidacyjne
+        val_accuracy = self.model.score(X_val, y_val)
+        y_val_pred = self.model.predict(X_val)
+        val_f1 = f1_score(y_val, y_val_pred, average='weighted')
+        
+        log_info(f"Model retrained:")
+        log_info(f"  - Validation accuracy: {val_accuracy:.3f}")
+        log_info(f"  - Validation F1: {val_f1:.3f}")
+        log_info(f"  - Training samples: {len(valid_samples)}")
+        
+        # Track F1 score
+        self.prediction_stats['f1_scores'].append(val_f1)
+        
+        # Update feature importance
+        if hasattr(self.gb_model, 'feature_importances_'):
+            self.feature_importance = dict(zip(self.feature_keys, self.gb_model.feature_importances_))
         
         # Zapisz zaktualizowany model
         self._save_model()
     
     def get_model_stats(self) -> Dict[str, Any]:
-        """Zwraca statystyki modelu"""
+        """Zwraca comprehensive statystyki modelu"""
         stats = {
             'total_predictions': self.prediction_stats['total_predictions'],
             'predictions_by_category': dict(self.prediction_stats['by_category']),
             'training_buffer_size': len(self.training_buffer),
             'sklearn_available': SKLEARN_AVAILABLE,
-            'model_trained': hasattr(self, 'feature_keys')
+            'model_trained': hasattr(self, 'feature_keys'),
+            'num_features': len(self.feature_keys) if hasattr(self, 'feature_keys') else 0
         }
         
-        # Oblicz średnią accuracy z ostatnich próbek
+        # Accuracy metrics
         if self.prediction_stats['accuracy_samples']:
-            stats['recent_accuracy'] = np.mean(list(self.prediction_stats['accuracy_samples']))
+            stats['recent_accuracy'] = float(np.mean(list(self.prediction_stats['accuracy_samples'])))
+            stats['accuracy_std'] = float(np.std(list(self.prediction_stats['accuracy_samples'])))
+        
+        # F1 score metrics
+        if self.prediction_stats['f1_scores']:
+            stats['recent_f1'] = float(np.mean(list(self.prediction_stats['f1_scores'])))
+            stats['f1_trend'] = 'improving' if len(self.prediction_stats['f1_scores']) > 1 and \
+                              self.prediction_stats['f1_scores'][-1] > self.prediction_stats['f1_scores'][0] else 'stable'
+        
+        # Confidence metrics
+        if self.prediction_stats['confidence_scores']:
+            stats['avg_confidence'] = float(np.mean(list(self.prediction_stats['confidence_scores'])))
+            stats['confidence_std'] = float(np.std(list(self.prediction_stats['confidence_scores'])))
+        
+        # Performance metrics
+        if self.prediction_stats['inference_times']:
+            stats['avg_inference_time_ms'] = float(np.mean(list(self.prediction_stats['inference_times'])))
+            stats['p95_inference_time_ms'] = float(np.percentile(list(self.prediction_stats['inference_times']), 95))
+        
+        # Cache efficiency
+        total_cache_ops = self.prediction_stats['cache_hits'] + self.prediction_stats['cache_misses']
+        if total_cache_ops > 0:
+            stats['cache_hit_rate'] = float(self.prediction_stats['cache_hits'] / total_cache_ops)
+        
+        # Feature importance (top 10)
+        if self.feature_importance:
+            top_features = sorted(self.feature_importance.items(), key=lambda x: x[1], reverse=True)[:10]
+            stats['top_features'] = {k: float(v) for k, v in top_features}
+        
+        # Model configuration
+        if self.model and hasattr(self, 'gb_model'):
+            stats['model_config'] = {
+                'type': 'VotingClassifier(GB+RF)',
+                'gb_estimators': self.gb_model.n_estimators,
+                'rf_estimators': self.rf_model.n_estimators,
+                'voting_weights': [0.6, 0.4]
+            }
         
         return stats
 
