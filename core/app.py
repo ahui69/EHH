@@ -281,15 +281,15 @@ except Exception as e:
     if not _SUPPRESS_IMPORT_LOGS:
         print(f"✗ Files endpoint: {e}")
 
-# 5. TRAVEL - DISABLED (file does not exist)
-# try:
-#     from core import travel_endpoint
-#     app.include_router(travel_endpoint.router)
-#     if not _SUPPRESS_IMPORT_LOGS:
-#         print("✓ Travel endpoint         /api/travel/*")
-# except Exception as e:
-#     if not _SUPPRESS_IMPORT_LOGS:
-#         print(f"✗ Travel endpoint: {e}")
+# 5. TRAVEL (wyszukiwanie podróży)
+try:
+    from core import travel_endpoint
+    app.include_router(travel_endpoint.router)
+    if not _SUPPRESS_IMPORT_LOGS:
+        print("✓ Travel endpoint         /api/travel/*")
+except Exception as e:
+    if not _SUPPRESS_IMPORT_LOGS:
+        print(f"✗ Travel endpoint: {e}")
 
 # 6. ADMIN (statystyki, cache)
 try:
