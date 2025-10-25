@@ -132,3 +132,18 @@ def wsgi_get_ip(env: Dict[str, Any]) -> str:
         str: IP address
     """
     return env.get("HTTP_X_FORWARDED_FOR") or env.get("REMOTE_ADDR") or "0.0.0.0"
+
+
+def verify_token(token: str) -> bool:
+    """
+    Verify authentication token (legacy compatibility)
+    
+    Args:
+        token: Bearer token to verify
+        
+    Returns:
+        bool: True if valid
+    """
+    if not AUTH_TOKEN:
+        return True
+    return hmac.compare_digest(token, AUTH_TOKEN)

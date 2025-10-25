@@ -1526,16 +1526,36 @@ def stm_get_context(user_id: str = "default", limit: int = 10) -> str:
     except:
         return ""
 
+def get_memory_manager():
+    """Legacy memory manager getter - returns UnifiedMemorySystem"""
+    return get_memory_system()
+
+def psy_episode_add(event_type: str, content: str, metadata: Dict = None, user_id: str = "default") -> str:
+    """Legacy psyche episode add"""
+    try:
+        system = get_memory_system()
+        return system.add_episodic_memory(
+            content=content,
+            event_type=event_type,
+            metadata=metadata or {},
+            user_id=user_id
+        )
+    except Exception as e:
+        log_error(f"psy_episode_add failed: {e}", "MEMORY")
+        return ""
+
 # Export all compatibility functions
 __all__ = [
     "UnifiedMemorySystem",
     "TimeManager",
     "get_memory_system",
+    "get_memory_manager",
     "time_manager",
     "_db",
     "psy_get",
     "psy_set",
     "psy_tune",
+    "psy_episode_add",
     "ltm_add",
     "ltm_search_hybrid",
     "stm_add",
