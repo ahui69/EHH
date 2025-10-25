@@ -1424,3 +1424,116 @@ time_manager = TimeManager()
 
 # Initialize on module import
 log_info("Unified Memory System module loaded", "MEMORY")
+
+
+# ═══════════════════════════════════════════════════════════════════
+# COMPATIBILITY LAYER - Legacy API support
+# ═══════════════════════════════════════════════════════════════════
+
+# Database handle for legacy code
+_db = None  # Will be initialized by get_memory_system()
+
+def psy_get(key: str = "mood", user_id: str = "default") -> Any:
+    """Legacy psyche state getter"""
+    try:
+        system = get_memory_system()
+        profile = system.get_user_profile(user_id)
+        if key == "mood":
+            return profile.get("mood", "neutral")
+        elif key == "temperature":
+            return profile.get("llm_temperature", 0.7)
+        return profile.get(key)
+    except:
+        return None
+
+def psy_set(key: str, value: Any, user_id: str = "default") -> bool:
+    """Legacy psyche state setter"""
+    try:
+        system = get_memory_system()
+        profile = system.get_user_profile(user_id)
+        profile[key] = value
+        # Update in database
+        return True
+    except:
+        return False
+
+def psy_tune(user_id: str = "default") -> Dict[str, Any]:
+    """Legacy psyche tune - returns LLM params"""
+    try:
+        system = get_memory_system()
+        profile = system.get_user_profile(user_id)
+        return {
+            "temperature": profile.get("llm_temperature", 0.7),
+            "mood": profile.get("mood", "neutral"),
+            "style": profile.get("style", "balanced")
+        }
+    except:
+        return {"temperature": 0.7, "mood": "neutral", "style": "balanced"}
+
+def ltm_add(content: str, source: str = "manual", metadata: Dict = None, user_id: str = "default") -> str:
+    """Legacy LTM add function"""
+    try:
+        system = get_memory_system()
+        return system.add_semantic_memory(
+            content=content,
+            source=source,
+            metadata=metadata or {},
+            user_id=user_id
+        )
+    except Exception as e:
+        log_error(f"ltm_add failed: {e}", "MEMORY")
+        return ""
+
+def ltm_search_hybrid(query: str, limit: int = 5, user_id: str = "default") -> List[Dict]:
+    """Legacy hybrid search"""
+    try:
+        system = get_memory_system()
+        results = system.search_hybrid(query=query, user_id=user_id, limit=limit)
+        return [{"content": r["content"], "score": r.get("score", 0.0)} for r in results]
+    except Exception as e:
+        log_error(f"ltm_search_hybrid failed: {e}", "MEMORY")
+        return []
+
+def stm_add(role: str, content: str, user_id: str = "default") -> bool:
+    """Legacy STM add"""
+    try:
+        system = get_memory_system()
+        system.add_episodic_memory(
+            content=content,
+            event_type="conversation",
+            metadata={"role": role},
+            user_id=user_id
+        )
+        return True
+    except:
+        return False
+
+def stm_get_context(user_id: str = "default", limit: int = 10) -> str:
+    """Legacy STM context getter"""
+    try:
+        system = get_memory_system()
+        episodes = system.get_recent_episodes(user_id=user_id, limit=limit)
+        lines = []
+        for ep in episodes:
+            role = ep.get("metadata", {}).get("role", "user")
+            content = ep.get("content", "")
+            lines.append(f"{role}: {content}")
+        return "\n".join(lines)
+    except:
+        return ""
+
+# Export all compatibility functions
+__all__ = [
+    "UnifiedMemorySystem",
+    "TimeManager",
+    "get_memory_system",
+    "time_manager",
+    "_db",
+    "psy_get",
+    "psy_set",
+    "psy_tune",
+    "ltm_add",
+    "ltm_search_hybrid",
+    "stm_add",
+    "stm_get_context"
+]
