@@ -381,6 +381,37 @@ except Exception as e:
     if not _SUPPRESS_IMPORT_LOGS:
         print(f"✗ Research endpoint: {e}")
 
+# 15. COGNITIVE (cognitive engine - zaawansowane przetwarzanie)
+try:
+    import cognitive_endpoint
+    app.include_router(cognitive_endpoint.router)
+    if not _SUPPRESS_IMPORT_LOGS:
+        print("✓ Cognitive endpoint      /api/cognitive/*")
+except Exception as e:
+    if not _SUPPRESS_IMPORT_LOGS:
+        print(f"✗ Cognitive endpoint: {e}")
+
+# 16. MEMORY (hierarchical memory system)
+try:
+    import memory_endpoint
+    app.include_router(memory_endpoint.router)
+    if not _SUPPRESS_IMPORT_LOGS:
+        print("✓ Memory endpoint         /api/memory/*")
+except Exception as e:
+    if not _SUPPRESS_IMPORT_LOGS:
+        print(f"✗ Memory endpoint: {e}")
+
+if not _SUPPRESS_IMPORT_LOGS:
+    print("\n" + "="*70)
+    print("WSZYSTKIE ENDPOINTY ZAŁADOWANE")
+    print("="*70 + "\n")
+    app.include_router(memory_endpoint.router)
+    if not _SUPPRESS_IMPORT_LOGS:
+        print("✓ Memory endpoint         /api/memory/*")
+except Exception as e:
+    if not _SUPPRESS_IMPORT_LOGS:
+        print(f"✗ Research endpoint: {e}")
+
 if not _SUPPRESS_IMPORT_LOGS:
     print("\n" + "="*70 + "\n")
 
