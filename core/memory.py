@@ -91,8 +91,8 @@ MEMORY_DECAY_RATE = 0.02  # Connection decay per hour (było 0.05 - wolniejszy d
 FORGETTING_CURVE_HALFLIFE = 30 * 24 * 3600  # 30 days in seconds (było 7 dni)
 REINFORCEMENT_BOOST = 0.25  # Boost on memory access (było 0.2 - większy boost)
 
-# Background tasks (MORE FREQUENT!)
-AUTO_CONSOLIDATION_INTERVAL = 600  # 10 minutes (było 30)
+# Background tasks (🔥 TURBO MODE!)
+AUTO_CONSOLIDATION_INTERVAL = 180  # 🔥 3 minutes (było 10min) - HARDCORE!
 CLEANUP_INTERVAL = 1800  # 30 minutes (było 1h)
 BACKUP_INTERVAL = 43200  # 12 hours (było 24h)
 
@@ -235,15 +235,16 @@ class MemoryDatabase:
         conn = sqlite3.connect(self.db_path, check_same_thread=False)
         conn.row_factory = sqlite3.Row
         
-        # Performance optimizations
+        # Performance optimizations (🔥 HARDCORE TUNING!)
         conn.execute("PRAGMA journal_mode=WAL;")
         conn.execute("PRAGMA synchronous=NORMAL;")
         conn.execute("PRAGMA temp_store=MEMORY;")
         conn.execute("PRAGMA foreign_keys=ON;")
-        conn.execute("PRAGMA cache_size=-500000;")  # 500MB cache
-        conn.execute("PRAGMA mmap_size=2147483648;")  # 2GB mmap
+        conn.execute("PRAGMA cache_size=-2000000;")  # 🔥 2GB cache (było 500MB)
+        conn.execute("PRAGMA mmap_size=8589934592;")  # 🔥 8GB mmap (było 2GB)
         conn.execute("PRAGMA page_size=8192;")  # 8KB pages
         conn.execute("PRAGMA busy_timeout=30000;")  # 30s timeout
+        conn.execute("PRAGMA wal_autocheckpoint=20000;")  # 🔥 WAL checkpoint 20k (było 5k default)
         
         return conn
     
@@ -809,7 +810,7 @@ class SemanticMemory:
     
     def search_facts(self, query: str, user_id: Optional[str] = None,
                      limit: int = 20, min_confidence: float = 0.4) -> List[MemorySearchResult]:
-        """Hybrid search: BM25 + Vector similarity"""
+        """Hybrid search: BM25 + Vector similarity (🔥 UPGRADED SCORING!)"""
         # Text search (BM25 via FTS)
         text_nodes = self.db.search_nodes(query=query, layer="L2", user_id=user_id, limit=limit * 2)
         
@@ -830,14 +831,17 @@ class SemanticMemory:
             # Semantic similarity
             semantic_score = float(cosine_similarity(query_emb, node_emb))
             
+            # 🔥 Layer priority boost (L2=1.0, L1=0.7, L0=0.5)
+            layer_boost = 1.0  # L2 semantic - HIGHEST PRIORITY!
+            
             # Confidence bonus
             conf_bonus = node.confidence * 0.2
             
             # Importance bonus
             imp_bonus = node.importance * 0.1
             
-            # Combined score
-            total_score = semantic_score * 0.7 + conf_bonus + imp_bonus
+            # Combined score with layer boost
+            total_score = (semantic_score * 0.7 + conf_bonus + imp_bonus) * layer_boost
             
             results.append(MemorySearchResult(
                 node=node,

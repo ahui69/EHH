@@ -312,9 +312,9 @@ class CognitiveEngine:
         
         from .config import MEMORY_ENABLED, MEMORY_CONTEXT_LIMIT
         
-        # Ostatnie 100 wiadomości (UPGRADED z 10!)
+        # 🔥 Ostatnie 500 wiadomości (UPGRADED z 100!) - EXTREME CONTEXT!
         context = []
-        for msg in messages[-100:]:
+        for msg in messages[-500:]:
             if msg.get('role') in ['user', 'assistant'] and msg.get('content'):
                 context.append({
                     "role": msg['role'],
@@ -329,15 +329,15 @@ class CognitiveEngine:
                 
                 last_msg = self._extract_last_user_message(messages)
                 if last_msg:
-                    # Search across ALL memory layers (L0-L4)
+                    # Search across ALL memory layers (L0-L4) - 🔥 UPGRADED!
                     memory_results = memory_search(
                         query=last_msg,
                         user_id=user_id,
-                        max_results=MEMORY_CONTEXT_LIMIT  # 50 items from config
+                        max_results=100  # 🔥 100 items (było 50 from MEMORY_CONTEXT_LIMIT)
                     )
                     
-                    # Add top memory items as context
-                    for mem in memory_results[:20]:  # Top 20 in context
+                    # Add top memory items as context (🔥 UPGRADED 20→50!)
+                    for mem in memory_results[:50]:  # 🔥 Top 50 in context (było 20)
                         context.append({
                             "role": "memory",
                             "content": mem.get("content", ""),
@@ -347,7 +347,7 @@ class CognitiveEngine:
                             "confidence": mem.get("confidence", 0.7)
                         })
                     
-                    log_info(f"[MEMORY] Injected {len(memory_results[:20])} memory items into context")
+                    log_info(f"[MEMORY] Injected {len(memory_results[:50])} memory items into context (🔥 było 20!)")
                     
             except Exception as e:
                 log_warning(f"[COGNITIVE_ENGINE] Unified memory injection failed: {e}")

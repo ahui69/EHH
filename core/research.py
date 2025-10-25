@@ -42,8 +42,8 @@ from .llm import call_llm
 # ═══════════════════════════════════════════════════════════════════
 
 WEB_HTTP_TIMEOUT = float(os.getenv("WEB_HTTP_TIMEOUT", "45"))
-AUTO_TOPK = int(os.getenv("AUTO_TOPK", "8"))
-AUTO_FETCH = int(os.getenv("AUTO_FETCH", "4"))
+AUTO_TOPK = int(os.getenv("AUTO_TOPK", "12"))  # 🔥 12 sources (było 8)
+AUTO_FETCH = int(os.getenv("AUTO_FETCH", "6"))  # 🔥 6 fetch (było 4)
 AUTO_MIN_CHARS = int(os.getenv("AUTO_MIN_CHARS", "800"))
 AUTO_MAX_CHARS = int(os.getenv("AUTO_MAX_CHARS", "8000"))
 AUTON_DEDUP_MAX = int(os.getenv("AUTON_DEDUP_MAX", "1000"))
@@ -974,7 +974,7 @@ async def autonauka(q: str, topk: int = 10, deep_research: bool = False, use_ext
                                     content=fact,
                                     user_id=user_id,
                                     tags=["autonauka", "web", "research", q.split()[0] if q else "query"],
-                                    confidence=0.8  # High confidence from web
+                                    confidence=0.9  # 🔥 High confidence (było 0.8) - web sources trusted!
                                 )
                                 saved_facts.append(fact_id)
                         

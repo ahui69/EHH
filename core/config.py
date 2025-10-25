@@ -59,19 +59,19 @@ LLM_BACKOFF_S = float(os.getenv("LLM_BACKOFF_S", "1.5"))
 # MEMORY CONFIGURATION
 # ═══════════════════════════════════════════════════════════════════
 
-# STM (Short-Term Memory) settings (UPGRADED!)
+# STM (Short-Term Memory) settings (🔥 HARDCORE UPGRADED!)
 STM_LIMIT = 500  # Maximum messages in STM (było 130)
-STM_CONTEXT_WINDOW = 100  # Context window for analysis (było 45)
+STM_CONTEXT_WINDOW = 500  # 🔥 Context window (było 100) - EXTREME!
 
-# LTM (Long-Term Memory) settings (UPGRADED!)
+# LTM (Long-Term Memory) settings (🔥 HARDCORE UPGRADED!)
 LTM_IMPORTANCE_THRESHOLD = 0.6  # Threshold for promoting to LTM (było 0.7 - łatwiej awansować)
 LTM_CACHE_SIZE = 10000  # Number of facts to keep in memory cache (było 1000)
 
-# Memory system features
+# Memory system features (🔥 HARDCORE UPGRADED!)
 MEMORY_ENABLED = True  # Enable unified memory system
 MEMORY_AUTO_CONSOLIDATE = True  # Auto-consolidate episodes to facts
-MEMORY_CONTEXT_LIMIT = 50  # Max memory items to inject into LLM context
-MEMORY_ARCHIVE_DAYS = 365  # Archive memories older than 365 days (było 90)
+MEMORY_CONTEXT_LIMIT = 100  # 🔥 Max memory items (było 50) - DOUBLE!
+MEMORY_ARCHIVE_DAYS = 730  # 🔥 Archive 2 lata (było 365) - DŁUGI RETENTION!
 
 # ═══════════════════════════════════════════════════════════════════
 # RATE LIMITING

@@ -299,8 +299,9 @@ _EMBED_CACHE_HITS = 0
 _EMBED_CACHE_MISSES = 0
 
 # Embedding configuration (loaded from env if available)
+# 🔥 UPGRADED: all-mpnet-base-v2 (768 dim) - było all-MiniLM-L6-v2 (384 dim)
 EMBED_URL = "https://api.deepinfra.com/v1/openai/embeddings"
-EMBED_MODEL = "sentence-transformers/all-MiniLM-L6-v2"
+EMBED_MODEL = "sentence-transformers/all-mpnet-base-v2"
 
 
 def embed_many(texts: List[str]) -> List[List[float]]:
