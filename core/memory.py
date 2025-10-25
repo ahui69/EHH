@@ -283,6 +283,11 @@ class MemoryDatabase:
             c.execute("CREATE INDEX IF NOT EXISTS idx_nodes_importance ON memory_nodes(importance DESC) WHERE deleted=0;")
             c.execute("CREATE INDEX IF NOT EXISTS idx_nodes_tags ON memory_nodes(tags) WHERE deleted=0;")
             
+            # 🔥 COMPOSITE INDICES dla hardcore performance!
+            c.execute("CREATE INDEX IF NOT EXISTS idx_nodes_user_layer_created ON memory_nodes(user_id, layer, created_at DESC) WHERE deleted=0;")
+            c.execute("CREATE INDEX IF NOT EXISTS idx_nodes_user_importance ON memory_nodes(user_id, importance DESC, confidence DESC) WHERE deleted=0;")
+            c.execute("CREATE INDEX IF NOT EXISTS idx_nodes_conf_imp ON memory_nodes(confidence DESC, importance DESC) WHERE deleted=0;")
+            
             # ═══════════════════════════════════════════════════════════
             # FTS5 FULL-TEXT SEARCH
             # ═══════════════════════════════════════════════════════════
@@ -797,6 +802,29 @@ class SemanticMemory:
             self.db.save_node(existing)
             self.cache.put(existing)
             return existing.id
+        
+        # 🔥 FUZZY DEDUP: Check for similar facts (90% threshold)
+        try:
+            from difflib import SequenceMatcher
+            recent_facts = self.db.search_nodes(
+                query=content[:100], 
+                layer="L2", 
+                user_id=user_id, 
+                limit=20
+            )
+            for fact in recent_facts:
+                similarity = SequenceMatcher(None, content.lower(), fact.content.lower()).ratio()
+                if similarity > 0.90:  # 90% podobne
+                    log_info(f"[L2] FUZZY DEDUP: Skipping similar fact (sim={similarity:.2f})", "SEMANTIC")
+                    # Reinforce existing instead
+                    fact.confidence = max(fact.confidence, confidence)
+                    fact.importance = min(1.0, fact.importance + REINFORCEMENT_BOOST)
+                    fact.access()
+                    self.db.save_node(fact)
+                    self.cache.put(fact)
+                    return fact.id
+        except Exception as e:
+            log_warning(f"Fuzzy dedup failed: {e}", "SEMANTIC")
         
         # Generate embedding
         node.get_embedding()
