@@ -13,8 +13,12 @@ from dataclasses import dataclass, asdict
 # --- MAIN IMPORT: THE NEW COGNITIVE ENGINE ---
 from core.cognitive_engine import cognitive_engine
 
-# Imports for memory saving and Pydantic models
-from core.memory import _save_turn_to_memory, _auto_learn_from_turn
+# Imports for memory saving (UnifiedMemorySystem)
+try:
+    from core.memory import get_memory_system
+    memory_system = get_memory_system()
+except ImportError:
+    memory_system = None
 
 # --- Pydantic Models (Unchanged) ---
 class Message(BaseModel):

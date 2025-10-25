@@ -13,8 +13,12 @@ from dataclasses import dataclass, asdict
 # --- MAIN IMPORT: THE NEW COGNITIVE ENGINE ---
 from core.cognitive_engine import cognitive_engine
 
-# Imports for memory saving and Pydantic models
-from core.memory import _save_turn_to_memory, _auto_learn_from_turn
+# Imports for memory saving (UnifiedMemorySystem)
+try:
+    from core.memory import get_memory_system
+    memory_system = get_memory_system()
+except ImportError:
+    memory_system = None
 
 # --- Pydantic Models (Unchanged) ---
 class Message(BaseModel):
@@ -72,14 +76,6 @@ async def chat_assistant(body: ChatRequest, req: Request, _=Depends(_auth)):
             log_info(f"[MEMORY] Conversation saved for user {user_id}")
         except Exception as e:
             log_warning(f"⚠️ Error during unified memory save: {e}")
-    
-    # Legacy memory save (fallback)
-    try:
-        _save_turn_to_memory(plain_last_user, result["answer"], user_id)
-        if body.auto_learn:
-            _auto_learn_from_turn(plain_last_user, result["answer"])
-    except Exception as e:
-        log_warning(f"⚠️ Error during legacy memory save: {e}")
 
     return ChatResponse(
         ok=True,
@@ -123,14 +119,6 @@ async def chat_assistant_stream(body: ChatRequest, req: Request, _=Depends(_auth
                 log_info(f"[MEMORY] Stream conversation saved for user {user_id}")
             except Exception as e:
                 log_warning(f"⚠️ Error during unified memory save: {e}")
-        
-        # Legacy memory save (fallback)
-        try:
-            _save_turn_to_memory(plain_last_user, answer, user_id)
-            if body.auto_learn:
-                _auto_learn_from_turn(plain_last_user, answer)
-        except Exception as e:
-            log_warning(f"⚠️ Error during legacy memory save: {e}")
 
     return StreamingResponse(generate(), media_type="text/event-stream")
 

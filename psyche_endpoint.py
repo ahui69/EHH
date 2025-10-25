@@ -10,11 +10,22 @@ from pydantic import BaseModel
 from typing import Dict, Any, Optional, List
 import os
 
-# Import z core
-from core.memory import (
-    psy_get, psy_set, psy_tune, psy_reflect, 
-    psy_episode_add, psy_observe_text, psy_tick
-)
+# Import z core (advanced_memory ma psyche functions)
+try:
+    from core.advanced_memory import (
+        psy_get, psy_set, psy_tune, psy_reflect, 
+        psy_episode_add, psy_observe_text, psy_tick
+    )
+except ImportError:
+    # Fallback - używamy advanced_psychology
+    from core.advanced_psychology import get_psyche_state
+    psy_get = lambda: get_psyche_state()
+    psy_set = lambda **kw: None
+    psy_tune = lambda **kw: None
+    psy_reflect = lambda txt, val: None
+    psy_episode_add = lambda **kw: None
+    psy_observe_text = lambda txt, user: None
+    psy_tick = lambda: None
 from core.auth import check_auth
 # Import zaawansowanego modułu psychologicznego
 from core.advanced_psychology import (
