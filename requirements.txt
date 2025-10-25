@@ -39,7 +39,7 @@ Pillow==10.3.0
 pytesseract==0.3.10
 
 # Data & Serialization
-orjson==0.10.7
+orjson>=3.10.0
 python-dotenv==1.0.0
 
 # Monitoring & Metrics
