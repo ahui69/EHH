@@ -42,11 +42,13 @@ from .executor import *
 try:
     from . import travel_endpoint
     from . import memory_endpoint
+    from . import auth_endpoint
 except ImportError as e:
     import warnings
     warnings.warn(f"Could not import endpoints: {e}")
     travel_endpoint = None
     memory_endpoint = None
+    auth_endpoint = None
 
 __version__ = "3.3.0"
 

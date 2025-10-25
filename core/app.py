@@ -241,6 +241,16 @@ if not _SUPPRESS_IMPORT_LOGS:
     print("MORDZIX AI - INICJALIZACJA ENDPOINTÓW")
     print("="*70 + "\n")
 
+# 0. AUTH (login/register/JWT)
+try:
+    from core import auth_endpoint
+    app.include_router(auth_endpoint.router)
+    if not _SUPPRESS_IMPORT_LOGS:
+        print("✓ Auth endpoint           /api/auth/*")
+except Exception as e:
+    if not _SUPPRESS_IMPORT_LOGS:
+        print(f"✗ Auth endpoint: {e}")
+
 # 1. ASSISTANT (główny chat z AI)
 try:
     from core import assistant_endpoint
