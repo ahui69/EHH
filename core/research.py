@@ -27,7 +27,14 @@ from .helpers import (
     normalize_text as _norm, make_id as _id_for, tokenize as _tok,
     tfidf_cosine as _tfidf_cos, cosine_similarity as _vec_cos
 )
-from .memory import _db, ltm_add, cache_get, cache_put
+try:
+    from .memory import _db, ltm_add, cache_get, cache_put
+except ImportError:
+    # Fallback for unified memory system
+    _db = None
+    def ltm_add(*args, **kwargs): pass
+    def cache_get(*args, **kwargs): return None
+    def cache_put(*args, **kwargs): pass
 from .llm import call_llm
 
 # ═══════════════════════════════════════════════════════════════════
