@@ -56,6 +56,11 @@ FIRECRAWL_KEY = FIRECRAWL_API_KEY
 OPENTRIPMAP_KEY = os.getenv("OTM_API_KEY", "")
 OVERPASS_URL = "https://overpass-api.de/api/interpreter"
 
+# 🔥 REAL-TIME WEB CONFIG (UPGRADED!)
+REAL_TIME_WEB = os.getenv("REAL_TIME_WEB", "1") == "1"  # Zawsze świeże dane
+WEB_CACHE_DISABLED = os.getenv("WEB_CACHE_DISABLED", "1") == "1"  # Wyłącz old cache
+UNIFIED_MEMORY_INTEGRATION = os.getenv("UNIFIED_MEMORY_INTEGRATION", "1") == "1"  # Integracja z L2
+
 # ═══════════════════════════════════════════════════════════════════
 # DATA MODELS
 # ═══════════════════════════════════════════════════════════════════
@@ -793,13 +798,76 @@ except ImportError as e:
 
 async def autonauka(q: str, topk: int = 10, deep_research: bool = False, use_external_module: bool = True, user_id: str = None) -> dict:
     """
-    Enhanced autonauka with Hierarchical Memory System integration.
-    Now stores research results in L1-L4 levels and uses existing knowledge.
+    🔥 UPGRADED: Real-time web research z unified memory integration!
+    - Zawsze świeże dane z web (cache disabled by default)
+    - Auto-save do unified memory L2 (semantic facts)
+    - Hierarchical memory jako fallback
     """
-    key=f"autonauka:{q}:{topk}:{deep_research}:{use_external_module}:{user_id or 'default'}"
-    cach=cache_get(key, ttl=1800)
-    if cach and isinstance(cach, dict) and "context" in cach and "sources" in cach:
-        return cach
+    
+    # 🔥 OLD CACHE DISABLED (tylko dla nie-real-time trybu)
+    if not REAL_TIME_WEB and not WEB_CACHE_DISABLED:
+        key=f"autonauka:{q}:{topk}:{deep_research}:{use_external_module}:{user_id or 'default'}"
+        cach=cache_get(key, ttl=1800)
+        if cach and isinstance(cach, dict) and "context" in cach and "sources" in cach:
+            print(f"[CACHE] Using cached autonauka result (STARE DANE!)")
+            return cach
+    else:
+        print(f"🔥 [REAL-TIME WEB] Pobieram świeże dane z internetu...")
+    
+    # 🔥 NEW: Check UNIFIED MEMORY first (L2 semantic facts)
+    unified_memory_result = None
+    if UNIFIED_MEMORY_INTEGRATION:
+        try:
+            from .memory import memory_search
+            from .config import MEMORY_ENABLED
+            
+            if MEMORY_ENABLED:
+                print(f"🧠 [UNIFIED MEMORY] Checking L0-L4 for: '{q[:60]}...'")
+                memory_results = memory_search(
+                    query=q,
+                    user_id=user_id or "default",
+                    max_results=20
+                )
+                
+                # If high-confidence facts exist, use them
+                if memory_results and len(memory_results) >= 3:
+                    avg_confidence = sum(r.get("confidence", 0) for r in memory_results) / len(memory_results)
+                    
+                    if avg_confidence > 0.7:
+                        print(f"🧠 [UNIFIED MEMORY] Using existing knowledge (confidence: {avg_confidence:.2f})")
+                        
+                        ctx_parts = [r.get("content", "") for r in memory_results[:topk]]
+                        facts_list = [r.get("content", "") for r in memory_results[:5]]
+                        sources_list = [
+                            {
+                                "title": f"Memory {r.get('layer', 'L2')} - {r.get('id', 'unknown')[:8]}",
+                                "url": f"memory://{r.get('layer')}/{r.get('id')}",
+                                "source_type": "unified_memory",
+                                "confidence": r.get("confidence", 0),
+                                "importance": r.get("importance", 0)
+                            }
+                            for r in memory_results[:5]
+                        ]
+                        
+                        unified_memory_result = {
+                            "query": q,
+                            "context": "\n\n".join(ctx_parts),
+                            "facts": facts_list,
+                            "sources": sources_list,
+                            "is_deep_research": deep_research,
+                            "source_count": len(memory_results),
+                            "powered_by": "unified-memory-L0-L4",
+                            "unified_memory_confidence": avg_confidence,
+                            "cache_hit": False,
+                            "real_time": False  # From memory, not web
+                        }
+                        
+                        # Still fetch fresh web data in background if deep_research
+                        if not deep_research:
+                            return unified_memory_result
+                        
+        except Exception as e:
+            print(f"[WARN] Unified memory check failed: {e}")
     
     # NEW: Check hierarchical memory first for existing knowledge
     hierarchical_context = {}
@@ -886,10 +954,42 @@ async def autonauka(q: str, topk: int = 10, deep_research: bool = False, use_ext
                 "sources": cites[:max(12, topk)],
                 "is_deep_research": deep_research,
                 "source_count": len(result.get("materials", [])),
-                "powered_by": "autonauka-module"
+                "powered_by": "autonauka-web-real-time",
+                "real_time": True  # Fresh from web!
             }
             
-            # NEW: Store research results in hierarchical memory
+            # 🔥 NEW: Save to UNIFIED MEMORY (L2 semantic facts)
+            if UNIFIED_MEMORY_INTEGRATION and user_id:
+                try:
+                    from .memory import memory_add_fact
+                    from .config import MEMORY_ENABLED
+                    
+                    if MEMORY_ENABLED:
+                        saved_facts = []
+                        
+                        # Save top facts to L2 semantic memory
+                        for i, fact in enumerate(fact_highlights[:5]):
+                            if len(fact) > 40:  # Tylko istotne fakty
+                                fact_id = memory_add_fact(
+                                    content=fact,
+                                    user_id=user_id,
+                                    tags=["autonauka", "web", "research", q.split()[0] if q else "query"],
+                                    confidence=0.8  # High confidence from web
+                                )
+                                saved_facts.append(fact_id)
+                        
+                        print(f"🧠 [UNIFIED MEMORY] Saved {len(saved_facts)} facts to L2 semantic memory")
+                        
+                        out["unified_memory"] = {
+                            "stored": True,
+                            "facts_saved": len(saved_facts),
+                            "layer": "L2_semantic"
+                        }
+                except Exception as e:
+                    print(f"[WARN] Failed to save to unified memory: {e}")
+                    out["unified_memory"] = {"stored": False, "error": str(e)}
+            
+            # Save to hierarchical memory (fallback)
             if HIERARCHICAL_MEMORY_AVAILABLE and user_id:
                 try:
                     research_context = {
@@ -918,7 +1018,10 @@ async def autonauka(q: str, topk: int = 10, deep_research: bool = False, use_ext
                     print(f"[WARN] Failed to store in hierarchical memory: {e}")
                     out["hierarchical_memory"] = {"stored": False, "error": str(e)}
             
-            cache_put(key, out)
+            # 🔥 Cache disabled for real-time mode
+            if not REAL_TIME_WEB and not WEB_CACHE_DISABLED:
+                cache_put(key, out)
+            
             return out
     except Exception as e:
         log_error(e, "AUTONAUKA_WEB_LEARN")
