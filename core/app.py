@@ -402,15 +402,20 @@ except Exception as e:
         print(f"✗ Memory endpoint: {e}")
 
 if not _SUPPRESS_IMPORT_LOGS:
-    print("\n" + "="*70)
-    print("WSZYSTKIE ENDPOINTY ZAŁADOWANE")
-    print("="*70 + "\n")
+# 16. MEMORY (hierarchical memory system)
+try:
+    import memory_endpoint
     app.include_router(memory_endpoint.router)
     if not _SUPPRESS_IMPORT_LOGS:
         print("✓ Memory endpoint         /api/memory/*")
 except Exception as e:
     if not _SUPPRESS_IMPORT_LOGS:
-        print(f"✗ Research endpoint: {e}")
+        print(f"✗ Memory endpoint: {e}")
+
+if not _SUPPRESS_IMPORT_LOGS:
+    print("\n" + "="*70)
+    print("WSZYSTKIE ENDPOINTY ZAŁADOWANE")
+    print("="*70 + "\n")
 
 if not _SUPPRESS_IMPORT_LOGS:
     print("\n" + "="*70 + "\n")
