@@ -6,6 +6,8 @@ LLM module - Language Model interaction with retry logic and fallback
 
 import time
 import httpx
+import hashlib
+import json
 from typing import List, Dict, Any, Optional
 
 from .config import (
@@ -13,6 +15,30 @@ from .config import (
     LLM_TIMEOUT, LLM_RETRIES, LLM_BACKOFF_S
 )
 from .helpers import log_error, log_warning, log_info
+
+# Import Redis cache
+try:
+    from .redis_middleware import get_redis
+    REDIS_AVAILABLE = True
+except Exception as e:
+    log_warning(f"Redis cache not available: {e}")
+    REDIS_AVAILABLE = False
+
+
+# ═══════════════════════════════════════════════════════════════════
+# CACHE UTILITIES
+# ═══════════════════════════════════════════════════════════════════
+
+def _generate_cache_key(messages: List[dict], model: str, **opts) -> str:
+    """Generate cache key from LLM request parameters"""
+    cache_data = {
+        "model": model,
+        "messages": messages,
+        "temperature": opts.get("temperature"),
+        "max_tokens": opts.get("max_tokens")
+    }
+    cache_string = json.dumps(cache_data, sort_keys=True)
+    return f"llm:{hashlib.sha256(cache_string.encode()).hexdigest()}"
 
 
 # ═══════════════════════════════════════════════════════════════════
@@ -93,27 +119,78 @@ def _llm_request(messages: List[dict], model: str, **opts) -> str:
 
 def call_llm(messages: List[dict], **opts) -> str:
     """
-    Call LLM with fallback mechanism
+    Call LLM with fallback mechanism + Redis cache
     
-    1️⃣ Try main model (LLM_MODEL)
-    2️⃣ If fails → try fallback model (LLM_FALLBACK_MODEL)
+    1️⃣ Check Redis cache
+    2️⃣ If miss → Try main model (LLM_MODEL)
+    3️⃣ If fails → try fallback model (LLM_FALLBACK_MODEL)
+    4️⃣ Store result in Redis cache
     
     Args:
         messages: List of message dicts with 'role' and 'content'
-        **opts: Optional parameters (temperature, max_tokens, timeout_s, etc.)
+        **opts: Optional parameters:
+            - temperature: float (0.0-1.0)
+            - max_tokens: int
+            - timeout_s: float
+            - skip_cache: bool (default: False) - skip Redis cache
+            - cache_ttl: int (default: 3600) - cache TTL in seconds
         
     Returns:
         str: LLM response content (or error message if both fail)
     """
+    # Check if cache should be used
+    skip_cache = opts.pop("skip_cache", False)
+    cache_ttl = opts.pop("cache_ttl", 3600)  # 1 hour default
+    
+    # Try Redis cache first (unless skip_cache=True)
+    if REDIS_AVAILABLE and not skip_cache:
+        try:
+            redis = get_redis()
+            cache_key = _generate_cache_key(messages, LLM_MODEL, **opts)
+            
+            cached_result = redis.get(cache_key)
+            if cached_result is not None:
+                log_info(f"[CACHE HIT] LLM response from Redis", "LLM")
+                return cached_result
+            
+            log_info(f"[CACHE MISS] Calling LLM API", "LLM")
+        except Exception as e:
+            log_warning(f"Redis cache check failed: {e}", "LLM")
+    
     # Try main model
     try:
-        return _llm_request(messages, LLM_MODEL, **opts)
+        result = _llm_request(messages, LLM_MODEL, **opts)
+        
+        # Store in Redis cache
+        if REDIS_AVAILABLE and not skip_cache:
+            try:
+                redis = get_redis()
+                cache_key = _generate_cache_key(messages, LLM_MODEL, **opts)
+                redis.set(cache_key, result, ttl=cache_ttl)
+                log_info(f"[CACHE STORE] Saved LLM response to Redis (TTL: {cache_ttl}s)", "LLM")
+            except Exception as e:
+                log_warning(f"Redis cache store failed: {e}", "LLM")
+        
+        return result
+        
     except Exception as e1:
         log_warning(f"Main model failed: {e1} — trying fallback {LLM_FALLBACK_MODEL}", "LLM")
         
         # Try fallback model
         try:
-            return _llm_request(messages, LLM_FALLBACK_MODEL, **opts)
+            result = _llm_request(messages, LLM_FALLBACK_MODEL, **opts)
+            
+            # Store fallback result in cache with shorter TTL
+            if REDIS_AVAILABLE and not skip_cache:
+                try:
+                    redis = get_redis()
+                    cache_key = _generate_cache_key(messages, LLM_FALLBACK_MODEL, **opts)
+                    redis.set(cache_key, result, ttl=cache_ttl // 2)  # Half TTL for fallback
+                except Exception:
+                    pass
+            
+            return result
+            
         except Exception as e2:
             log_error(e2, "LLM_FALLBACK")
             return f"[LLM-FAIL] Main: {str(e1)[:100]}... Fallback: {str(e2)[:100]}"

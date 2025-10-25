@@ -14,6 +14,7 @@ from collections import deque
 import heapq
 import json
 import traceback
+import hashlib
 
 from core.llm import call_llm, call_llm_once, call_llm_stream
 from core.config import (
@@ -21,6 +22,14 @@ from core.config import (
     LLM_RETRIES, LLM_TIMEOUT, LLM_BACKOFF_S
 )
 from core.helpers import log_info, log_warning, log_error
+
+# Import Redis cache middleware
+try:
+    from core.redis_middleware import get_redis, cached
+    REDIS_AVAILABLE = True
+except Exception as e:
+    log_warning(f"Redis not available: {e}")
+    REDIS_AVAILABLE = False
 
 # Import modułu wsadowego przetwarzania
 from batch_processing import (

@@ -1,6 +1,24 @@
 version: '3.8'
 
 services:
+  # Redis Cache
+  redis:
+    image: redis:7-alpine
+    container_name: mordzix-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    command: redis-server --appendonly yes --maxmemory 512mb --maxmemory-policy allkeys-lru
+    volumes:
+      - redis-data:/data
+    networks:
+      - mordzix-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
   # Backend FastAPI
   backend:
     build:
@@ -15,12 +33,16 @@ services:
       - PORT=8080
       - MEM_DB=/app/data/mem.db
       - WORKSPACE=/app/workspace
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
     env_file:
       - .env
     volumes:
       - ./data:/app/data
       - ./workspace:/app/workspace
       - ./mem.db:/app/mem.db
+    depends_on:
+      - redis
     networks:
       - mordzix-network
     healthcheck:
@@ -58,3 +80,4 @@ networks:
 
 volumes:
   mordzix-data:
+  redis-data:
