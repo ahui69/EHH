@@ -1,9 +1,19 @@
-import { Plus, MessageSquare, Trash2, Download, Upload } from 'lucide-react';
+import { Plus, MessageSquare, Trash2, Download, Upload, RefreshCw } from 'lucide-react';
 import { useChatStore } from '../store/chatStore';
 import type { Conversation } from '../types';
+import { useEffect } from 'react';
+import { useAuth } from '../contexts/AuthContext';
 
 export default function Sidebar() {
-  const { conversations, currentConversationId, addConversation, deleteConversation, setCurrentConversation, exportConversations, importConversations } = useChatStore();
+  const { conversations, currentConversationId, addConversation, deleteConversation, setCurrentConversation, exportConversations, importConversations, syncWithBackend, isSyncing, loadConversationFromBackend } = useChatStore();
+  const { isAuthenticated } = useAuth();
+
+  // Auto-sync on mount if authenticated
+  useEffect(() => {
+    if (isAuthenticated) {
+      syncWithBackend();
+    }
+  }, [isAuthenticated, syncWithBackend]);
 
   const handleNewChat = () => {
     const newConv: Conversation = {
@@ -14,6 +24,15 @@ export default function Sidebar() {
       updatedAt: Date.now(),
     };
     addConversation(newConv);
+  };
+
+  const handleConversationClick = async (convId: string) => {
+    setCurrentConversation(convId);
+    // Load messages from backend if empty
+    const conv = conversations.find(c => c.id === convId);
+    if (conv && conv.messages.length === 0 && isAuthenticated) {
+      await loadConversationFromBackend(convId);
+    }
   };
 
   const handleExport = () => {
@@ -45,7 +64,7 @@ export default function Sidebar() {
 
   return (
     <div className="w-64 bg-gray-100 dark:bg-gray-800 flex flex-col border-r border-gray-200 dark:border-gray-700">
-      <div className="p-4">
+      <div className="p-4 space-y-2">
         <button
           onClick={handleNewChat}
           className="w-full flex items-center gap-2 px-4 py-2 bg-gray-800 hover:bg-gray-700 text-white rounded-lg transition-colors"
@@ -53,13 +72,24 @@ export default function Sidebar() {
           <Plus size={20} />
           <span>New Chat</span>
         </button>
+        
+        {isAuthenticated && (
+          <button
+            onClick={() => syncWithBackend()}
+            disabled={isSyncing}
+            className="w-full flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors disabled:opacity-50"
+          >
+            <RefreshCw size={16} className={isSyncing ? 'animate-spin' : ''} />
+            <span>{isSyncing ? 'Syncing...' : 'Sync'}</span>
+          </button>
+        )}
       </div>
 
       <div className="flex-1 overflow-y-auto p-2">
         {conversations.map((conv) => (
           <div
             key={conv.id}
-            onClick={() => setCurrentConversation(conv.id)}
+            onClick={() => handleConversationClick(conv.id)}
             className={`group flex items-center justify-between p-3 mb-1 rounded-lg cursor-pointer transition-colors ${
               currentConversationId === conv.id
                 ? 'bg-gray-200 dark:bg-gray-700'

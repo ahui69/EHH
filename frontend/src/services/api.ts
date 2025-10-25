@@ -563,6 +563,44 @@ export const internalAPI = {
 };
 
 // ============================================================================
+// 16. MEMORY CONVERSATIONS (3 endpoints)
+// ============================================================================
+
+export const conversationAPI = {
+  // GET /api/memory/conversations - list all conversations
+  listConversations: async (limit: number = 50, offset: number = 0) => {
+    const { data } = await api.get('/memory/conversations', {
+      params: { limit, offset }
+    });
+    return data;
+  },
+
+  // GET /api/memory/conversations/{id} - get conversation messages
+  getConversation: async (conversationId: string) => {
+    const { data } = await api.get(`/memory/conversations/${conversationId}`);
+    return data;
+  },
+
+  // DELETE /api/memory/conversations/{id} - delete conversation
+  deleteConversation: async (conversationId: string) => {
+    const { data } = await api.delete(`/memory/conversations/${conversationId}`);
+    return data;
+  },
+
+  // POST /api/memory/conversation - save conversation turn
+  saveConversationTurn: async (payload: {
+    user_message: string;
+    assistant_response: string;
+    conversation_id?: string;
+    intent?: string;
+    metadata?: any;
+  }) => {
+    const { data } = await api.post('/memory/conversation', payload);
+    return data;
+  },
+};
+
+// ============================================================================
 // HEALTH CHECK
 // ============================================================================
 

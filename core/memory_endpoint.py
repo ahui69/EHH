@@ -1226,5 +1226,154 @@ async def clear_user_memory(
         raise HTTPException(status_code=500, detail=str(e))
 
 
+# ═══════════════════════════════════════════════════════════════════
+# CONVERSATION HISTORY ENDPOINTS
+# ═══════════════════════════════════════════════════════════════════
+
+@router.get("/conversations", response_model=MemoryResponse)
+async def list_conversations(
+    user=Depends(get_current_user),
+    limit: int = 50,
+    offset: int = 0
+):
+    """
+    List all conversations for current user
+    
+    Returns conversation metadata sorted by last activity
+    """
+    try:
+        user_id = user.get("username", "guest")
+        mem = get_memory_system()
+        
+        # Get episodes (L1) grouped by conversation_id
+        with mem.db._conn() as conn:
+            rows = conn.execute("""
+                SELECT 
+                    json_extract(metadata, '$.conversation_id') as conv_id,
+                    MIN(created_at) as created_at,
+                    MAX(created_at) as updated_at,
+                    COUNT(*) as message_count,
+                    json_extract(metadata, '$.title') as title
+                FROM memory_nodes
+                WHERE user_id = ? AND layer = 'L1' AND deleted = 0
+                    AND json_extract(metadata, '$.conversation_id') IS NOT NULL
+                GROUP BY json_extract(metadata, '$.conversation_id')
+                ORDER BY updated_at DESC
+                LIMIT ? OFFSET ?
+            """, (user_id, limit, offset)).fetchall()
+        
+        conversations = [
+            {
+                "id": row[0],
+                "created_at": row[1],
+                "updated_at": row[2],
+                "message_count": row[3],
+                "title": row[4] or f"Conversation {row[0][:8]}..."
+            }
+            for row in rows
+        ]
+        
+        return MemoryResponse(
+            success=True,
+            data={"conversations": conversations, "total": len(conversations)},
+            message=f"Found {len(conversations)} conversations"
+        )
+    except Exception as e:
+        log_error(e, "MEMORY_API")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/conversations/{conversation_id}", response_model=MemoryResponse)
+async def get_conversation_messages(
+    conversation_id: str,
+    user=Depends(get_current_user)
+):
+    """
+    Get all messages from a specific conversation
+    
+    Returns chronological list of user/assistant messages
+    """
+    try:
+        user_id = user.get("username", "guest")
+        mem = get_memory_system()
+        
+        # Get all episodes for this conversation
+        with mem.db._conn() as conn:
+            rows = conn.execute("""
+                SELECT node_id, content, metadata, created_at
+                FROM memory_nodes
+                WHERE user_id = ? 
+                    AND layer = 'L1' 
+                    AND deleted = 0
+                    AND json_extract(metadata, '$.conversation_id') = ?
+                ORDER BY created_at ASC
+            """, (user_id, conversation_id)).fetchall()
+        
+        messages = []
+        for row in rows:
+            import json
+            metadata = json.loads(row[2]) if row[2] else {}
+            
+            # Extract user and assistant messages from episode
+            if metadata.get("user_message"):
+                messages.append({
+                    "role": "user",
+                    "content": metadata["user_message"],
+                    "timestamp": row[3]
+                })
+            if metadata.get("assistant_message"):
+                messages.append({
+                    "role": "assistant",
+                    "content": metadata["assistant_message"],
+                    "timestamp": row[3]
+                })
+        
+        return MemoryResponse(
+            success=True,
+            data={
+                "conversation_id": conversation_id,
+                "messages": messages,
+                "count": len(messages)
+            },
+            message=f"Retrieved {len(messages)} messages"
+        )
+    except Exception as e:
+        log_error(e, "MEMORY_API")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.delete("/conversations/{conversation_id}", response_model=MemoryResponse)
+async def delete_conversation(
+    conversation_id: str,
+    user=Depends(get_current_user)
+):
+    """
+    Delete a specific conversation (soft delete)
+    """
+    try:
+        user_id = user.get("username", "guest")
+        mem = get_memory_system()
+        
+        with mem.db._conn() as conn:
+            result = conn.execute("""
+                UPDATE memory_nodes 
+                SET deleted = 1 
+                WHERE user_id = ? 
+                    AND layer = 'L1'
+                    AND json_extract(metadata, '$.conversation_id') = ?
+            """, (user_id, conversation_id))
+            conn.commit()
+            deleted_count = result.rowcount
+        
+        return MemoryResponse(
+            success=True,
+            data={"deleted_messages": deleted_count},
+            message=f"Deleted conversation {conversation_id}"
+        )
+    except Exception as e:
+        log_error(e, "MEMORY_API")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 # Export router
 __all__ = ["router"]
