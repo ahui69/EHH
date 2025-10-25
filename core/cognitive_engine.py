@@ -308,11 +308,13 @@ class CognitiveEngine:
         messages: List[Dict[str, Any]], 
         user_id: str
     ) -> List[Dict[str, Any]]:
-        """Przygotuj kontekst konwersacji"""
+        """Przygotuj kontekst konwersacji z UNIFIED MEMORY (UPGRADED!)"""
         
-        # Ostatnie 10 wiadomości z odpowiednim formatowaniem
+        from .config import MEMORY_ENABLED, MEMORY_CONTEXT_LIMIT
+        
+        # Ostatnie 100 wiadomości (UPGRADED z 10!)
         context = []
-        for msg in messages[-10:]:
+        for msg in messages[-100:]:
             if msg.get('role') in ['user', 'assistant'] and msg.get('content'):
                 context.append({
                     "role": msg['role'],
@@ -320,19 +322,49 @@ class CognitiveEngine:
                     "timestamp": msg.get('timestamp', datetime.now().isoformat())
                 })
         
-        # Dodaj kontekst z pamięci hierarchicznej jeśli dostępny
+        # 🔥 UNIFIED MEMORY SYSTEM (PRIMARY)
+        if MEMORY_ENABLED:
+            try:
+                from .memory import memory_search
+                
+                last_msg = self._extract_last_user_message(messages)
+                if last_msg:
+                    # Search across ALL memory layers (L0-L4)
+                    memory_results = memory_search(
+                        query=last_msg,
+                        user_id=user_id,
+                        max_results=MEMORY_CONTEXT_LIMIT  # 50 items from config
+                    )
+                    
+                    # Add top memory items as context
+                    for mem in memory_results[:20]:  # Top 20 in context
+                        context.append({
+                            "role": "memory",
+                            "content": mem.get("content", ""),
+                            "timestamp": mem.get("created_at", ""),
+                            "type": f"memory_{mem.get('layer', 'unknown')}",
+                            "importance": mem.get("importance", 0.5),
+                            "confidence": mem.get("confidence", 0.7)
+                        })
+                    
+                    log_info(f"[MEMORY] Injected {len(memory_results[:20])} memory items into context")
+                    
+            except Exception as e:
+                log_warning(f"[COGNITIVE_ENGINE] Unified memory injection failed: {e}")
+        
+        # Dodaj kontekst z pamięci hierarchicznej jeśli dostępny (SECONDARY)
         if HIERARCHICAL_MEMORY_AVAILABLE:
             try:
                 # Pobranie dodatkowego kontekstu z pamięci
                 memory_context = get_hierarchical_context(
                     query=messages[-1].get('content', '') if messages else '',
                     user_id=user_id,
-                    max_size=2000
+                    max_size=3000  # UPGRADED: 3000 (było 2000)
                 )
                 
                 # Dodaj episodic memories jako kontekst
                 episodes = memory_context.get('episodic_memories', [])
-                for episode in episodes[:3]:  # Top 3 episodes
+                for episode in episodes[:5]:  # Top 5 episodes (UPGRADED z 3)
                     context.append({
                         "role": "memory",
                         "content": episode.get('summary', ''),

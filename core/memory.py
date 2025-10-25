@@ -75,26 +75,26 @@ except ImportError:
 # GLOBAL CONFIGURATION
 # ═══════════════════════════════════════════════════════════════════════════════
 
-# Memory limits and thresholds
-MAX_STM_SIZE = STM_LIMIT  # 130 messages
-MAX_EPISODIC_SIZE = 1000  # Recent episodes kept in RAM
-MAX_SEMANTIC_SIZE = LTM_CACHE_SIZE  # 1000 facts in RAM cache
-MAX_GRAPH_NODES = 5000  # Max nodes in associative graph
+# Memory limits and thresholds (UPGRADED!)
+MAX_STM_SIZE = 500  # 500 messages (było 130)
+MAX_EPISODIC_SIZE = 5000  # Recent episodes kept in RAM (było 1000)
+MAX_SEMANTIC_SIZE = 10000  # 10k facts in RAM cache (było 1000)
+MAX_GRAPH_NODES = 50000  # Max nodes in associative graph (było 5000)
 
-# Consolidation thresholds
-EPISODIC_TO_SEMANTIC_THRESHOLD = 5  # Min episodes to create semantic fact
-SEMANTIC_CLUSTERING_THRESHOLD = 3  # Min facts to create cluster
-PROCEDURAL_LEARNING_THRESHOLD = 3  # Min executions to learn procedure
+# Consolidation thresholds (MORE AGGRESSIVE!)
+EPISODIC_TO_SEMANTIC_THRESHOLD = 3  # Min episodes to create semantic fact (było 5)
+SEMANTIC_CLUSTERING_THRESHOLD = 2  # Min facts to create cluster (było 3)
+PROCEDURAL_LEARNING_THRESHOLD = 2  # Min executions to learn procedure (było 3)
 
-# Decay and forgetting
-MEMORY_DECAY_RATE = 0.05  # Connection decay per hour
-FORGETTING_CURVE_HALFLIFE = 7 * 24 * 3600  # 7 days in seconds
-REINFORCEMENT_BOOST = 0.2  # Boost on memory access
+# Decay and forgetting (LONGER RETENTION!)
+MEMORY_DECAY_RATE = 0.02  # Connection decay per hour (było 0.05 - wolniejszy decay)
+FORGETTING_CURVE_HALFLIFE = 30 * 24 * 3600  # 30 days in seconds (było 7 dni)
+REINFORCEMENT_BOOST = 0.25  # Boost on memory access (było 0.2 - większy boost)
 
-# Background tasks
-AUTO_CONSOLIDATION_INTERVAL = 1800  # 30 minutes
-CLEANUP_INTERVAL = 3600  # 1 hour
-BACKUP_INTERVAL = 86400  # 24 hours
+# Background tasks (MORE FREQUENT!)
+AUTO_CONSOLIDATION_INTERVAL = 600  # 10 minutes (było 30)
+CLEANUP_INTERVAL = 1800  # 30 minutes (było 1h)
+BACKUP_INTERVAL = 43200  # 12 hours (było 24h)
 
 # Storage paths
 LTM_STORAGE_ROOT = os.getenv("LTM_STORAGE_ROOT", os.path.join(BASE_DIR, "ltm_storage"))

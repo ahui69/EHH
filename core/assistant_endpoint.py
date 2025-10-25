@@ -45,22 +45,41 @@ def _auth(req: Request):
     if (req.headers.get("Authorization","") or "").replace("Bearer ","").strip() != AUTH_TOKEN:
         raise HTTPException(401, "unauthorized")
 
-# --- LEAN MAIN ENDPOINT ---
+# --- LEAN MAIN ENDPOINT (UPGRADED - auto memory integration!) ---
 @router.post("/assistant", response_model=ChatResponse)
 async def chat_assistant(body: ChatRequest, req: Request, _=Depends(_auth)):
+    from .config import MEMORY_ENABLED
+    from .memory import memory_add_conversation
+    
     user_id = body.user_id or req.client.host or "default"
 
-    # Delegate all logic to the cognitive engine
+    # 🔥 PRE-PROCESSING: Add conversation to memory BEFORE cognitive engine
+    # This ensures memory is available during context building
+    plain_last_user = next((m.content for m in reversed(body.messages) if m.role == "user"), "")
+    
+    # Delegate all logic to the cognitive engine (with memory context injected!)
     result = await cognitive_engine.process_message(user_id, [m.dict() for m in body.messages], req)
 
-    # Save the turn to memory after getting the response
+    # 🔥 POST-PROCESSING: Save the turn to UNIFIED MEMORY after getting response
+    if MEMORY_ENABLED and plain_last_user and result.get("answer"):
+        try:
+            memory_add_conversation(
+                user_id=user_id,
+                user_msg=plain_last_user,
+                assistant_msg=result["answer"],
+                intent=result.get("metadata", {}).get("intent", "chat")
+            )
+            log_info(f"[MEMORY] Conversation saved for user {user_id}")
+        except Exception as e:
+            log_warning(f"⚠️ Error during unified memory save: {e}")
+    
+    # Legacy memory save (fallback)
     try:
-        plain_last_user = next((m.content for m in reversed(body.messages) if m.role == "user"), "")
         _save_turn_to_memory(plain_last_user, result["answer"], user_id)
         if body.auto_learn:
             _auto_learn_from_turn(plain_last_user, result["answer"])
     except Exception as e:
-        print(f"⚠️ Error during post-response memory save: {e}")
+        log_warning(f"⚠️ Error during legacy memory save: {e}")
 
     return ChatResponse(
         ok=True,
@@ -69,9 +88,12 @@ async def chat_assistant(body: ChatRequest, req: Request, _=Depends(_auth)):
         metadata=result.get("metadata", {})
     )
 
-# --- LEAN STREAMING ENDPOINT ---
+# --- LEAN STREAMING ENDPOINT (UPGRADED - auto memory integration!) ---
 @router.post("/assistant/stream")
 async def chat_assistant_stream(body: ChatRequest, req: Request, _=Depends(_auth)):
+    from .config import MEMORY_ENABLED
+    from .memory import memory_add_conversation
+    
     user_id = body.user_id or req.client.host or "default"
 
     async def generate():
@@ -87,14 +109,28 @@ async def chat_assistant_stream(body: ChatRequest, req: Request, _=Depends(_auth
         
         yield f"data: {json.dumps({'type': 'complete', 'answer': answer, 'metadata': result.get('metadata', {})})}\n\n"
 
-        # Save to memory after stream completion
+        # 🔥 Save to UNIFIED MEMORY after stream completion
+        plain_last_user = next((m.content for m in reversed(body.messages) if m.role == "user"), "")
+        
+        if MEMORY_ENABLED and plain_last_user and answer:
+            try:
+                memory_add_conversation(
+                    user_id=user_id,
+                    user_msg=plain_last_user,
+                    assistant_msg=answer,
+                    intent=result.get("metadata", {}).get("intent", "chat")
+                )
+                log_info(f"[MEMORY] Stream conversation saved for user {user_id}")
+            except Exception as e:
+                log_warning(f"⚠️ Error during unified memory save: {e}")
+        
+        # Legacy memory save (fallback)
         try:
-            plain_last_user = next((m.content for m in reversed(body.messages) if m.role == "user"), "")
             _save_turn_to_memory(plain_last_user, answer, user_id)
             if body.auto_learn:
                 _auto_learn_from_turn(plain_last_user, answer)
         except Exception as e:
-            print(f"⚠️ Error during post-stream memory save: {e}")
+            log_warning(f"⚠️ Error during legacy memory save: {e}")
 
     return StreamingResponse(generate(), media_type="text/event-stream")
 
