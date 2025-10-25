@@ -1250,12 +1250,12 @@ async def list_conversations(
             rows = conn.execute("""
                 SELECT 
                     json_extract(metadata, '$.conversation_id') as conv_id,
-                    MIN(created_at) as created_at,
-                    MAX(created_at) as updated_at,
+                    MIN(timestamp) as created_at,
+                    MAX(timestamp) as updated_at,
                     COUNT(*) as message_count,
                     json_extract(metadata, '$.title') as title
-                FROM memory_nodes
-                WHERE user_id = ? AND layer = 'L1' AND deleted = 0
+                FROM memory_episodes
+                WHERE user_id = ? AND deleted = 0
                     AND json_extract(metadata, '$.conversation_id') IS NOT NULL
                 GROUP BY json_extract(metadata, '$.conversation_id')
                 ORDER BY updated_at DESC
@@ -1300,33 +1300,50 @@ async def get_conversation_messages(
         # Get all episodes for this conversation
         with mem.db._conn() as conn:
             rows = conn.execute("""
-                SELECT node_id, content, metadata, created_at
-                FROM memory_nodes
+                SELECT episode_id, summary, metadata, timestamp
+                FROM memory_episodes
                 WHERE user_id = ? 
-                    AND layer = 'L1' 
                     AND deleted = 0
                     AND json_extract(metadata, '$.conversation_id') = ?
-                ORDER BY created_at ASC
+                ORDER BY timestamp ASC
             """, (user_id, conversation_id)).fetchall()
         
         messages = []
         for row in rows:
             import json
             metadata = json.loads(row[2]) if row[2] else {}
+            related_ids = json.loads(row[0].replace('related_stm_ids:', '')) if 'related_stm_ids:' in row[0] else []
             
-            # Extract user and assistant messages from episode
-            if metadata.get("user_message"):
+            # Try to extract from metadata first (faster)
+            user_msg = metadata.get("user_message")
+            assistant_msg = metadata.get("assistant_message")
+            
+            if user_msg:
                 messages.append({
                     "role": "user",
-                    "content": metadata["user_message"],
+                    "content": user_msg,
                     "timestamp": row[3]
                 })
-            if metadata.get("assistant_message"):
+            if assistant_msg:
                 messages.append({
                     "role": "assistant",
-                    "content": metadata["assistant_message"],
+                    "content": assistant_msg,
                     "timestamp": row[3]
                 })
+            
+            # Fallback: extract from STM if metadata is empty
+            if not user_msg and not assistant_msg and row[0]:
+                related_ids_json = row[0]  # related_stm_ids is TEXT
+                try:
+                    stm_ids = json.loads(related_ids_json) if related_ids_json else []
+                    # Query STM for actual messages (not implemented - fallback to summary)
+                    messages.append({
+                        "role": "assistant",
+                        "content": row[1],  # summary as fallback
+                        "timestamp": row[3]
+                    })
+                except:
+                    pass
         
         return MemoryResponse(
             success=True,
@@ -1356,10 +1373,9 @@ async def delete_conversation(
         
         with mem.db._conn() as conn:
             result = conn.execute("""
-                UPDATE memory_nodes 
+                UPDATE memory_episodes 
                 SET deleted = 1 
                 WHERE user_id = ? 
-                    AND layer = 'L1'
                     AND json_extract(metadata, '$.conversation_id') = ?
             """, (user_id, conversation_id))
             conn.commit()

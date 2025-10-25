@@ -311,11 +311,18 @@ class MemoryDatabase:
                     summary TEXT NOT NULL,
                     related_stm_ids TEXT,
                     metadata TEXT,
-                    timestamp REAL NOT NULL
+                    timestamp REAL NOT NULL,
+                    deleted INTEGER DEFAULT 0
                 );
             """)
             c.execute("CREATE INDEX IF NOT EXISTS idx_episodes_user_ts ON memory_episodes(user_id, timestamp DESC);")
             c.execute("CREATE INDEX IF NOT EXISTS idx_episodes_type ON memory_episodes(episode_type);")
+            
+            # Migration: Add deleted column if missing
+            try:
+                c.execute("ALTER TABLE memory_episodes ADD COLUMN deleted INTEGER DEFAULT 0")
+            except:
+                pass  # Column already exists
             
             # ═══════════════════════════════════════════════════════════
             # SEMANTIC CLUSTERS (L2)
