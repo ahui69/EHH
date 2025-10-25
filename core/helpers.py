@@ -395,6 +395,20 @@ def get_embed_cache_stats() -> Dict[str, int]:
     }
 
 
+# Alias for backward compatibility with memory.py
+def embed_texts(texts: List[str]) -> List[List[float]]:
+    """
+    Alias for embed_many() - for backward compatibility
+    
+    Args:
+        texts: List of texts to embed
+        
+    Returns:
+        List[List[float]]: List of embedding vectors
+    """
+    return embed_many(texts)
+
+
 # ═══════════════════════════════════════════════════════════════════
 # NER / PII DETECTION
 # ═══════════════════════════════════════════════════════════════════
