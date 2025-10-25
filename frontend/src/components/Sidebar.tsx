@@ -48,7 +48,7 @@ export default function Sidebar() {
       <div className="p-4">
         <button
           onClick={handleNewChat}
-          className="w-full flex items-center gap-2 px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg transition"
+          className="w-full flex items-center gap-2 px-4 py-2 bg-gray-800 hover:bg-gray-700 text-white rounded-lg transition-colors"
         >
           <Plus size={20} />
           <span>New Chat</span>
@@ -60,9 +60,9 @@ export default function Sidebar() {
           <div
             key={conv.id}
             onClick={() => setCurrentConversation(conv.id)}
-            className={`group flex items-center justify-between p-3 mb-1 rounded-lg cursor-pointer transition ${
+            className={`group flex items-center justify-between p-3 mb-1 rounded-lg cursor-pointer transition-colors ${
               currentConversationId === conv.id
-                ? 'bg-primary-100 dark:bg-primary-900'
+                ? 'bg-gray-200 dark:bg-gray-700'
                 : 'hover:bg-gray-200 dark:hover:bg-gray-700'
             }`}
           >

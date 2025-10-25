@@ -42,7 +42,10 @@ export interface Settings {
   maxTokens?: number;
   model?: string;
   authToken?: string;
+  userId?: string;
   useMemory: boolean;
   useResearch: boolean;
   autoLearn: boolean;
+  internetAccess?: boolean;
+  useBatchProcessing?: boolean;
 }
