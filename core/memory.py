@@ -1,1187 +1,1313 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Memory Module - FULL LOGIC from monolit.py
-STM/LTM, AdvancedMemoryManager, TimeManager, Database, Facts, Psyche
+═══════════════════════════════════════════════════════════════════════════════
+UNIFIED MEMORY SYSTEM - Enterprise-Grade Multi-Layer Memory Architecture
+═══════════════════════════════════════════════════════════════════════════════
 
-NO PLACEHOLDERS - FULL WORKING CODE!
+Architecture:
+    L0: Short-Term Memory (STM) - Active conversation context (RAM)
+    L1: Episodic Memory - Recent events and conversations (SQLite + RAM)
+    L2: Semantic Memory - Long-term facts and knowledge (SQLite + FTS + Vectors)
+    L3: Procedural Memory - Learned patterns and procedures (SQLite)
+    L4: Meta/Mental Models - User profiles and domain knowledge (SQLite + Graph)
+
+Features:
+    ✅ Multi-layer hierarchical memory with auto-consolidation
+    ✅ Vector embeddings for semantic search (sentence-transformers)
+    ✅ Graph-based associative connections between memories
+    ✅ Redis caching for hot data (LRU eviction)
+    ✅ Memory decay and forgetting curves (Ebbinghaus)
+    ✅ Importance scoring and reinforcement learning
+    ✅ Temporal weighting and recency bias
+    ✅ Cross-layer context retrieval
+    ✅ Hybrid search: BM25 + Vector + Graph traversal
+    ✅ Automatic consolidation background tasks
+    ✅ Comprehensive health monitoring and analytics
+
+Storage:
+    - SQLite: Primary persistence (optimized with WAL, mmap, indexes)
+    - Redis: Hot cache layer (LRU, TTL-based eviction)
+    - Filesystem: Vector indices, backups (/ltm_storage/{user_id}/...)
+
+NO PLACEHOLDERS - FULL PRODUCTION-GRADE IMPLEMENTATION!
+═══════════════════════════════════════════════════════════════════════════════
 """
 
-import os, sys, time, json, uuid, sqlite3, datetime, math
-from typing import Any, Dict, List, Tuple, Optional
-from collections import Counter
+import os
+import sys
+import time
+import json
+import uuid
+import sqlite3
+import hashlib
+import pickle
+import numpy as np
+import asyncio
+import threading
+from pathlib import Path
+from typing import Any, Dict, List, Tuple, Optional, Set, Union
+from collections import Counter, deque, defaultdict
+from dataclasses import dataclass, asdict, field
+from datetime import datetime, timedelta
 
-# Import from other core modules
+# Core imports
 from .config import (
-    AUTH_TOKEN, BASE_DIR, DB_PATH, HTTP_TIMEOUT,
-    STM_LIMIT, LTM_IMPORTANCE_THRESHOLD, LTM_CACHE_SIZE,
-    CONTEXT_DICTIONARIES
+    BASE_DIR, DB_PATH, STM_LIMIT, STM_CONTEXT_WINDOW,
+    LTM_IMPORTANCE_THRESHOLD, LTM_CACHE_SIZE
 )
 from .helpers import (
     log_info, log_warning, log_error,
-    normalize_text as _norm, make_id as _id_for, tokenize as _tok,
-    tfidf_cosine as _tfidf_cos, sentences_split as _sentences,
-    tag_pii as _tag_pii_in_text
+    tokenize, make_id, tfidf_cosine,
+    embed_texts, cosine_similarity
 )
 
-# Import nowej pamięci hierarchicznej - lazy import aby uniknąć circular import
-hierarchical_memory_manager = None
-HIERARCHICAL_MEMORY_AVAILABLE = False
-
-def _init_hierarchical_memory():
-    """Lazy initialization of hierarchical memory to avoid circular imports"""
-    global hierarchical_memory_manager, HIERARCHICAL_MEMORY_AVAILABLE
-    if hierarchical_memory_manager is None:
-        try:
-            from .hierarchical_memory import hierarchical_memory_manager as hmm
-            hierarchical_memory_manager = hmm
-            HIERARCHICAL_MEMORY_AVAILABLE = True
-            log_info("Hierarchical Memory system is available.", "MEMORY")
-        except ImportError as e:
-            hierarchical_memory_manager = None
-            HIERARCHICAL_MEMORY_AVAILABLE = False
-            log_warning(f"Hierarchical Memory system not available: {e}", "MEMORY")
+# Redis cache (optional)
+try:
+    from .redis_middleware import get_redis
+    REDIS_AVAILABLE = True
+except ImportError:
+    REDIS_AVAILABLE = False
+    log_warning("Redis not available, using in-memory cache only", "MEMORY")
 
 
-# ═══════════════════════════════════════════════════════════════════
-# GLOBAL MEMORY STATE
-# ═══════════════════════════════════════════════════════════════════
+# ═══════════════════════════════════════════════════════════════════════════════
+# GLOBAL CONFIGURATION
+# ═══════════════════════════════════════════════════════════════════════════════
 
-STM_CONTEXT = {}  # {user_id: [messages]}
-LTM_FACTS_CACHE = []
-LTM_CACHE_LOADED = False
-CONTEXT_ANALYZER = {}
+# Memory limits and thresholds
+MAX_STM_SIZE = STM_LIMIT  # 130 messages
+MAX_EPISODIC_SIZE = 1000  # Recent episodes kept in RAM
+MAX_SEMANTIC_SIZE = LTM_CACHE_SIZE  # 1000 facts in RAM cache
+MAX_GRAPH_NODES = 5000  # Max nodes in associative graph
 
-# FTS5 availability flag
-FTS5_AVAILABLE = True
+# Consolidation thresholds
+EPISODIC_TO_SEMANTIC_THRESHOLD = 5  # Min episodes to create semantic fact
+SEMANTIC_CLUSTERING_THRESHOLD = 3  # Min facts to create cluster
+PROCEDURAL_LEARNING_THRESHOLD = 3  # Min executions to learn procedure
 
-# Seed facts paths
-SEED_CANDIDATES = [
-    os.path.join(BASE_DIR, "seed_facts.jsonl"),
-    "/workspace/mrd/seed_facts.jsonl",
-    "/app/seed_facts.jsonl",
-    "seed_facts.jsonl"
-]
+# Decay and forgetting
+MEMORY_DECAY_RATE = 0.05  # Connection decay per hour
+FORGETTING_CURVE_HALFLIFE = 7 * 24 * 3600  # 7 days in seconds
+REINFORCEMENT_BOOST = 0.2  # Boost on memory access
 
-# ═══════════════════════════════════════════════════════════════════
-# ADVANCED MEMORY MANAGER
-# ═══════════════════════════════════════════════════════════════════
+# Background tasks
+AUTO_CONSOLIDATION_INTERVAL = 1800  # 30 minutes
+CLEANUP_INTERVAL = 3600  # 1 hour
+BACKUP_INTERVAL = 86400  # 24 hours
 
-class AdvancedMemoryManager:
-    """Zaawansowany menedżer pamięci z analizą kontekstu"""
+# Storage paths
+LTM_STORAGE_ROOT = os.getenv("LTM_STORAGE_ROOT", os.path.join(BASE_DIR, "ltm_storage"))
+VECTOR_INDEX_PATH = os.path.join(LTM_STORAGE_ROOT, "vector_indices")
+BACKUP_PATH = os.path.join(LTM_STORAGE_ROOT, "backups")
 
-    def __init__(self):
-        self.stm_limit = 130  # Zwiększony limit STM
-        self.ltm_importance_threshold = 0.7  # Próg ważności dla LTM
-        self.context_window = 45  # Okno kontekstu dla analizy
+# Create directories
+for p in [LTM_STORAGE_ROOT, VECTOR_INDEX_PATH, BACKUP_PATH]:
+    Path(p).mkdir(parents=True, exist_ok=True)
 
-    def add_to_stm(self, message: dict, user_id: str = "default"):
-        """Dodaj wiadomość do STM z analizą kontekstu"""
-        if user_id not in STM_CONTEXT:
-            STM_CONTEXT[user_id] = []
 
-        # Analiza kontekstu wiadomości
-        context_analysis = self._analyze_context(message)
-        message["context_analysis"] = context_analysis
-        message["importance_score"] = self._calculate_importance(message, context_analysis)
+# ═══════════════════════════════════════════════════════════════════════════════
+# DATA STRUCTURES
+# ═══════════════════════════════════════════════════════════════════════════════
 
-        STM_CONTEXT[user_id].append(message)
-
-        # Przenieś ważne wiadomości do LTM
-        if message["importance_score"] > self.ltm_importance_threshold:
-            self._promote_to_ltm(message, user_id)
-
-        # Ogranicz STM do limitu
-        if len(STM_CONTEXT[user_id]) > self.stm_limit:
-            STM_CONTEXT[user_id] = STM_CONTEXT[user_id][-self.stm_limit:]
-
-    def _analyze_context(self, message: dict) -> dict:
-        """Analiza kontekstu wiadomości"""
-        content = message.get("content", "").lower()
-        context_score = {"technical": 0, "casual": 0, "sports": 0, "business": 0, "creative": 0, "other": 0}
-
-        # Analiza słów kluczowych
-        for category, keywords in CONTEXT_DICTIONARIES.items():
-            for subcategory, words in keywords.items():
-                for word in words:
-                    if word.lower() in content:
-                        context_score[category] = context_score.get(category, 0) + 1
-
-        # Określ dominujący kontekst
-        dominant_context = max(context_score, key=context_score.get)
+@dataclass
+class MemoryNode:
+    """Universal memory node for all layers"""
+    id: str
+    layer: str  # L0, L1, L2, L3, L4
+    content: str
+    user_id: str = "default"
+    
+    # Metadata
+    tags: List[str] = field(default_factory=list)
+    metadata: Dict[str, Any] = field(default_factory=dict)
+    
+    # Scoring
+    importance: float = 0.5  # 0-1
+    confidence: float = 0.7  # 0-1
+    
+    # Temporal
+    created_at: float = field(default_factory=time.time)
+    accessed_at: float = field(default_factory=time.time)
+    access_count: int = 0
+    
+    # Associations
+    connections: Dict[str, float] = field(default_factory=dict)  # node_id -> strength
+    
+    # Vector embedding (lazy loaded)
+    _embedding: Optional[np.ndarray] = None
+    
+    def access(self) -> None:
+        """Update access statistics and apply reinforcement"""
+        self.accessed_at = time.time()
+        self.access_count += 1
+        # Reinforcement learning: importance grows with access
+        self.importance = min(1.0, self.importance + REINFORCEMENT_BOOST * (1.0 - self.importance))
+    
+    def connect(self, other_id: str, strength: float = 0.5) -> None:
+        """Create or strengthen connection to another node"""
+        current = self.connections.get(other_id, 0.0)
+        # Hebbian learning: "neurons that fire together wire together"
+        self.connections[other_id] = min(1.0, current + strength * (1.0 - current))
+    
+    def decay_connections(self, hours_elapsed: float = 1.0) -> None:
+        """Apply memory decay to connections (Ebbinghaus forgetting curve)"""
+        decay_factor = 1.0 - (MEMORY_DECAY_RATE * hours_elapsed)
+        for node_id in list(self.connections.keys()):
+            self.connections[node_id] *= decay_factor
+            if self.connections[node_id] < 0.1:
+                del self.connections[node_id]
+    
+    def get_embedding(self) -> np.ndarray:
+        """Get or generate vector embedding"""
+        if self._embedding is None:
+            embeddings = embed_texts([self.content])
+            self._embedding = np.array(embeddings[0]) if embeddings else np.zeros(384)
+        return self._embedding
+    
+    def to_dict(self) -> Dict[str, Any]:
+        """Serialize to dictionary"""
         return {
-            "dominant": dominant_context,
-            "scores": context_score,
-            "keywords_found": sum(context_score.values())
+            "id": self.id,
+            "layer": self.layer,
+            "content": self.content,
+            "user_id": self.user_id,
+            "tags": self.tags,
+            "metadata": self.metadata,
+            "importance": self.importance,
+            "confidence": self.confidence,
+            "created_at": self.created_at,
+            "accessed_at": self.accessed_at,
+            "access_count": self.access_count,
+            "connections": self.connections,
         }
-
-    def _calculate_importance(self, message: dict, context_analysis: dict) -> float:
-        """Oblicz ważność wiadomości dla LTM"""
-        base_score = 0.5
-
-        # Premia za słowa kluczowe
-        keywords_bonus = min(context_analysis["keywords_found"] * 0.1, 0.3)
-
-        # Premia za długość (ważne informacje są dłuższe)
-        content_length = len(message.get("content", ""))
-        length_bonus = min(content_length / 1000, 0.2)
-
-        # Premia za kontekst techniczny (ważniejszy)
-        context_bonus = 0.1 if context_analysis["dominant"] == "technical" else 0.0
-
-        total_score = base_score + keywords_bonus + length_bonus + context_bonus
-        return min(total_score, 1.0)
-
-    def _promote_to_ltm(self, message: dict, user_id: str):
-        """Przenieś ważną wiadomość do LTM."""
-        try:
-            text = (message or {}).get("content", "").strip()
-            if not text:
-                return
-            tags = (message or {}).get("tags") or f"user:{user_id},stm"
-            conf = float((message or {}).get("conf") or 0.75)
-            # Zapis do LTM (SQLite + ewentualny FTS)
-            ltm_add(text, tags, conf)
-            log_info(f"Promoted to LTM: {text[:96]}", "MEMORY")
-        except Exception as e:
-            log_error(e, "PROMOTE_TO_LTM")
-
-    def get_stm_context(self, user_id: str = "default", limit: int = 10) -> list:
-        """Pobierz kontekst STM z analizą"""
-        if user_id not in STM_CONTEXT:
-            return []
-
-        context = STM_CONTEXT[user_id][-limit:]
-
-        # Dodaj metadane kontekstu
-        for msg in context:
-            if "context_analysis" not in msg:
-                msg["context_analysis"] = self._analyze_context(msg)
-
-        return context
-
-    def search_ltm_context(self, query: str, user_id: str = "default", limit: int = 5) -> list:
-        """Wyszukaj w LTM (hybryda cache/SQLite/FTS) i zwróć wyniki z metadanymi."""
-        try:
-            if not query:
-                return []
-            results = ltm_search_hybrid(query, limit=limit)
-            # Normalizacja minimalna
-            norm = []
-            for r in results or []:
-                if isinstance(r, dict):
-                    norm.append({
-                        "text": r.get("text", ""),
-                        "tags": r.get("tags", ""),
-                        "score": float(r.get("score", 0.0)),
-                        "source": r.get("source", "ltm"),
-                    })
-                else:
-                    # gdy wynik to sam tekst
-                    norm.append({"text": str(r), "tags": "", "score": 0.0, "source": "ltm"})
-            return norm[:limit]
-        except Exception as e:
-            log_error(e, "SEARCH_LTM_CONTEXT")
-            return []
-
-
-# Inicjalizacja zaawansowanego menedżera pamięci
-memory_manager = AdvancedMemoryManager()
-
-
-def get_memory_manager() -> AdvancedMemoryManager:
-    """
-    Zwraca singleton menedżera pamięci (kompatybilność wsteczna)
     
-    Returns:
-        AdvancedMemoryManager instance
-    """
-    return memory_manager
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> 'MemoryNode':
+        """Deserialize from dictionary"""
+        return cls(
+            id=data["id"],
+            layer=data["layer"],
+            content=data["content"],
+            user_id=data.get("user_id", "default"),
+            tags=data.get("tags", []),
+            metadata=data.get("metadata", {}),
+            importance=data.get("importance", 0.5),
+            confidence=data.get("confidence", 0.7),
+            created_at=data.get("created_at", time.time()),
+            accessed_at=data.get("accessed_at", time.time()),
+            access_count=data.get("access_count", 0),
+            connections=data.get("connections", {}),
+        )
 
 
-# ═══════════════════════════════════════════════════════════════════
-# TIME MANAGER
-# ═══════════════════════════════════════════════════════════════════
-
-class TimeManager:
-    """Zarządzanie czasem i datą dla asystenta"""
-
-    def __init__(self):
-        self.timezone = None
-
-    def get_current_time(self) -> dict:
-        """Pobierz aktualny czas i datę"""
-        now = datetime.datetime.now()
-
+@dataclass
+class MemorySearchResult:
+    """Search result with scoring details"""
+    node: MemoryNode
+    score: float
+    match_type: str  # "exact", "semantic", "temporal", "graph"
+    context: Dict[str, Any] = field(default_factory=dict)
+    
+    def to_dict(self) -> Dict[str, Any]:
         return {
-            "timestamp": now.timestamp(),
-            "datetime": now.isoformat(),
-            "date": now.strftime("%Y-%m-%d"),
-            "time": now.strftime("%H:%M:%S"),
-            "day_of_week": now.strftime("%A"),
-            "day_of_week_pl": self._get_polish_day(now),
-            "month": now.strftime("%B"),
-            "month_pl": self._get_polish_month(now),
-            "year": now.year,
-            "is_weekend": now.weekday() >= 5,
-            "is_morning": 6 <= now.hour < 12,
-            "is_afternoon": 12 <= now.hour < 18,
-            "is_evening": 18 <= now.hour < 22,
-            "is_night": now.hour >= 22 or now.hour < 6
+            "node": self.node.to_dict(),
+            "score": self.score,
+            "match_type": self.match_type,
+            "context": self.context
         }
 
-    def _get_polish_day(self, dt: datetime.datetime) -> str:
-        """Pobierz nazwę dnia po polsku"""
-        days_pl = {
-            "Monday": "poniedziałek",
-            "Tuesday": "wtorek",
-            "Wednesday": "środa",
-            "Thursday": "czwartek",
-            "Friday": "piątek",
-            "Saturday": "sobota",
-            "Sunday": "niedziela"
-        }
-        return days_pl.get(dt.strftime("%A"), dt.strftime("%A"))
 
-    def _get_polish_month(self, dt: datetime.datetime) -> str:
-        """Pobierz nazwę miesiąca po polsku"""
-        months_pl = {
-            "January": "styczeń",
-            "February": "luty",
-            "March": "marzec",
-            "April": "kwiecień",
-            "May": "maj",
-            "June": "czerwiec",
-            "July": "lipiec",
-            "August": "sierpień",
-            "September": "wrzesień",
-            "October": "październik",
-            "November": "listopad",
-            "December": "grudzień"
-        }
-        return months_pl.get(dt.strftime("%B"), dt.strftime("%B"))
+# ═══════════════════════════════════════════════════════════════════════════════
+# DATABASE LAYER
+# ═══════════════════════════════════════════════════════════════════════════════
 
-    def format_time_greeting(self) -> str:
-        """Wygeneruj powitanie czasowe"""
-        time_info = self.get_current_time()
-
-        if time_info["is_morning"]:
-            return "Dzień dobry"
-        elif time_info["is_afternoon"]:
-            return "Dzień dobry"
-        elif time_info["is_evening"]:
-            return "Dobry wieczór"
-        else:
-            return "Dobranoc"
-
-    def format_date_info(self) -> str:
-        """Wygeneruj informacje o dacie"""
-        time_info = self.get_current_time()
-        return f"Dziś jest {time_info['day_of_week_pl']}, {time_info['date']}"
-
-
-# Inicjalizacja menedżera czasu
-time_manager = TimeManager()
-
-
-# ═══════════════════════════════════════════════════════════════════
-# DATABASE FUNCTIONS
-# ═══════════════════════════════════════════════════════════════════
-
-def _db():
-    """Get database connection with optimized settings"""
-    conn = sqlite3.connect(DB_PATH, check_same_thread=False)
-    conn.row_factory = sqlite3.Row
-    conn.execute("PRAGMA journal_mode=WAL;")
-    conn.execute("PRAGMA synchronous=NORMAL;")
-    conn.execute("PRAGMA temp_store=MEMORY;")
-    conn.execute("PRAGMA foreign_keys=ON;")  # Włącz constraint'y dla integralności danych
-    try:
-        # Agresywne optymalizacje pamięci
-        conn.execute("PRAGMA cache_size=-500000;")        # ~500MB - zwiększony cache
-        conn.execute("PRAGMA mmap_size=1073741824;")      # 1GB - znacznie zwiększony mmap
-        conn.execute("PRAGMA journal_size_limit=134217728;")  # 128MB - większy journal
-        conn.execute("PRAGMA page_size=8192;")            # Większe strony dla lepszego sekwencyjnego odczytu
-        conn.execute("PRAGMA busy_timeout=30000;")        # Dłuższy timeout dla współbieżnych operacji
-        conn.execute("PRAGMA auto_vacuum=INCREMENTAL;")   # Inkrementalne vacuum dla stabilnej wydajności
-        conn.execute("PRAGMA secure_delete=OFF;")         # Szybsze usuwanie bez nadpisywania
-    except Exception as e:
-        log_warning(f"Nie można zastosować wszystkich optymalizacji SQLite: {e}", "DB")
-    return conn
-
-
-def _init_db():
-    """Initialize all database tables"""
-    c = _db()
-    cur = c.cursor()
+class MemoryDatabase:
+    """SQLite database layer with optimizations"""
     
-    # Memory tables
-    cur.execute("""CREATE TABLE IF NOT EXISTS memory(
-        id TEXT PRIMARY KEY, user TEXT, role TEXT, content TEXT, ts REAL
-    );""")
+    def __init__(self, db_path: str = DB_PATH):
+        self.db_path = db_path
+        self._lock = threading.Lock()
+        self._init_db()
     
-    cur.execute("""CREATE TABLE IF NOT EXISTS memory_long(
-        id TEXT PRIMARY KEY, user TEXT, summary TEXT, details TEXT, ts REAL
-    );""")
-    
-    cur.execute("""CREATE TABLE IF NOT EXISTS meta_memory(
-        id TEXT PRIMARY KEY, user TEXT, key TEXT, value TEXT, conf REAL, ts REAL
-    );""")
-    
-    # Facts (LTM) table
-    cur.execute("""CREATE TABLE IF NOT EXISTS facts(
-        id TEXT PRIMARY KEY, text TEXT, tags TEXT, conf REAL, created REAL, deleted INTEGER DEFAULT 0
-    );""")
-    
-    # FTS5 for facts
-    global FTS5_AVAILABLE
-    try:
-        cur.execute("""CREATE VIRTUAL TABLE IF NOT EXISTS facts_fts USING fts5(text, tags);""")
-    except Exception as e:
-        FTS5_AVAILABLE = False
-        log_warning(f"FTS5 not available ({e}). Using fallback LIKE search.", "DB")
-    
-    # Embeddings
-    cur.execute("""CREATE TABLE IF NOT EXISTS mem_embed(
-        id TEXT PRIMARY KEY, user TEXT, vec TEXT, ts REAL
-    );""")
-    
-    # Documents
-    cur.execute("""CREATE TABLE IF NOT EXISTS docs(
-        id TEXT PRIMARY KEY, url TEXT, title TEXT, text TEXT, source TEXT, fetched REAL
-    );""")
-    
-    try:
-        cur.execute("""CREATE VIRTUAL TABLE IF NOT EXISTS docs_fts USING fts5(title, text, url UNINDEXED);""")
-    except:
-        pass
-    
-    # Cache
-    cur.execute("""CREATE TABLE IF NOT EXISTS cache(
-        key TEXT PRIMARY KEY, value TEXT, ts REAL
-    );""")
-    
-    # Psyche related tables
-    cur.execute("""CREATE TABLE IF NOT EXISTS psy_state(
-        id INTEGER PRIMARY KEY CHECK(id=1),
-        mood REAL, energy REAL, focus REAL, openness REAL, directness REAL,
-        agreeableness REAL, conscientiousness REAL, neuroticism REAL,
-        style TEXT, updated REAL
-    );""")
-
-    cur.execute("""CREATE TABLE IF NOT EXISTS psy_episode(
-        id TEXT PRIMARY KEY, user TEXT, kind TEXT, valence REAL, intensity REAL, tags TEXT, note TEXT, ts REAL
-    );""")
-
-    cur.execute("""CREATE TABLE IF NOT EXISTS psy_reflection(
-        id TEXT PRIMARY KEY, summary TEXT, delta_json TEXT, ts REAL
-    );""")
-
-    # Knowledge base for auctions
-    cur.execute("""CREATE TABLE IF NOT EXISTS kb_auction(
-        id TEXT PRIMARY KEY, kind TEXT, key TEXT, val TEXT, weight REAL, ts REAL
-    );""")
-    
-    # ═══════════════════════════════════════════════════════════════════
-    # INDEXES - Performance boost dla często używanych queries
-    # ═══════════════════════════════════════════════════════════════════
-    
-    # Facts indexes - KRITYCZNE dla wydajności wyszukiwania
-    cur.execute("CREATE INDEX IF NOT EXISTS idx_facts_deleted ON facts(deleted) WHERE deleted=0;")
-    cur.execute("CREATE INDEX IF NOT EXISTS idx_facts_created ON facts(created DESC);")
-    cur.execute("CREATE INDEX IF NOT EXISTS idx_facts_tags ON facts(tags);")
-    cur.execute("CREATE INDEX IF NOT EXISTS idx_facts_conf ON facts(conf DESC) WHERE deleted=0;")
-    cur.execute("CREATE INDEX IF NOT EXISTS idx_facts_text_prefix ON facts(text) WHERE deleted=0;")
-    cur.execute("CREATE INDEX IF NOT EXISTS idx_facts_tags_conf ON facts(tags, conf DESC) WHERE deleted=0;")
-    
-    # Memory indexes - zoptymalizowane pod częste operacje
-    cur.execute("CREATE INDEX IF NOT EXISTS idx_memory_user_ts ON memory(user, ts DESC);")
-    cur.execute("CREATE INDEX IF NOT EXISTS idx_memory_role_ts ON memory(role, ts DESC);") 
-    cur.execute("CREATE INDEX IF NOT EXISTS idx_memory_user_role_ts ON memory(user, role, ts DESC);")
-    cur.execute("CREATE INDEX IF NOT EXISTS idx_memory_long_user_ts ON memory_long(user, ts DESC);")
-    
-    # Cache indexes - szybszy dostęp i czyszczenie
-    cur.execute("CREATE INDEX IF NOT EXISTS idx_cache_ts ON cache(ts);")
-    cur.execute("CREATE INDEX IF NOT EXISTS idx_cache_key_prefix ON cache(key);")
-    
-    # Psyche indexes - szybkie filtrowanie emocji i intensywności
-    cur.execute("CREATE INDEX IF NOT EXISTS idx_psy_episode_user_ts ON psy_episode(user, ts DESC);")
-    cur.execute("CREATE INDEX IF NOT EXISTS idx_psy_episode_ts ON psy_episode(ts DESC);")
-    cur.execute("CREATE INDEX IF NOT EXISTS idx_psy_episode_kind ON psy_episode(kind);")
-    cur.execute("CREATE INDEX IF NOT EXISTS idx_psy_episode_valence ON psy_episode(valence);")
-    cur.execute("CREATE INDEX IF NOT EXISTS idx_psy_episode_intensity ON psy_episode(intensity);")
-    
-    # FTS Optimization - periodyzcne czyszczenie i optymalizacja
-    if FTS5_AVAILABLE:
-        try:
-            cur.execute("INSERT OR REPLACE INTO facts_fts(facts_fts) VALUES('optimize');")
-        except:
-            pass
-    
-    log_info("Advanced database indexes created/verified", "DB")
-    
-    # Initialize psyche state
-    cur.execute("INSERT OR IGNORE INTO psy_state VALUES(1,0.0,0.6,0.6,0.55,0.62,0.55,0.63,0.44,'rzeczowy',?)", (time.time(),))
-    
-    c.commit()
-    c.close()
-
-
-def _preload_seed_facts():
-    """Load seed facts from jsonl file at startup"""
-    log_info("Sprawdzam seed_facts.jsonl...", "DB")
-    
-    conn = _db()
-    c = conn.cursor()
-    facts_count = c.execute("SELECT COUNT(*) FROM facts").fetchone()[0]
-    conn.close()
-    
-    if facts_count < 100:
-        log_info(f"Znaleziono tylko {facts_count} faktów w bazie. Ładuję seed_facts.jsonl...", "DB")
+    def _conn(self) -> sqlite3.Connection:
+        """Get optimized database connection"""
+        conn = sqlite3.connect(self.db_path, check_same_thread=False)
+        conn.row_factory = sqlite3.Row
         
-        for path in SEED_CANDIDATES:
-            if not os.path.isfile(path):
-                continue
-                
-            loaded = 0
-            log_info(f"Ładuję fakty z: {path}", "DB")
+        # Performance optimizations
+        conn.execute("PRAGMA journal_mode=WAL;")
+        conn.execute("PRAGMA synchronous=NORMAL;")
+        conn.execute("PRAGMA temp_store=MEMORY;")
+        conn.execute("PRAGMA foreign_keys=ON;")
+        conn.execute("PRAGMA cache_size=-500000;")  # 500MB cache
+        conn.execute("PRAGMA mmap_size=2147483648;")  # 2GB mmap
+        conn.execute("PRAGMA page_size=8192;")  # 8KB pages
+        conn.execute("PRAGMA busy_timeout=30000;")  # 30s timeout
+        
+        return conn
+    
+    def _init_db(self) -> None:
+        """Initialize all database tables and indices"""
+        with self._lock, self._conn() as conn:
+            c = conn.cursor()
             
+            # ═══════════════════════════════════════════════════════════
+            # CORE MEMORY TABLE
+            # ═══════════════════════════════════════════════════════════
+            c.execute("""
+                CREATE TABLE IF NOT EXISTS memory_nodes (
+                    id TEXT PRIMARY KEY,
+                    layer TEXT NOT NULL,
+                    content TEXT NOT NULL,
+                    user_id TEXT NOT NULL,
+                    tags TEXT,
+                    metadata TEXT,
+                    importance REAL DEFAULT 0.5,
+                    confidence REAL DEFAULT 0.7,
+                    created_at REAL NOT NULL,
+                    accessed_at REAL NOT NULL,
+                    access_count INTEGER DEFAULT 0,
+                    connections TEXT,
+                    embedding BLOB,
+                    deleted INTEGER DEFAULT 0
+                );
+            """)
+            
+            # Indices for memory_nodes
+            c.execute("CREATE INDEX IF NOT EXISTS idx_nodes_layer ON memory_nodes(layer, deleted);")
+            c.execute("CREATE INDEX IF NOT EXISTS idx_nodes_user_layer ON memory_nodes(user_id, layer, deleted);")
+            c.execute("CREATE INDEX IF NOT EXISTS idx_nodes_created ON memory_nodes(created_at DESC);")
+            c.execute("CREATE INDEX IF NOT EXISTS idx_nodes_accessed ON memory_nodes(accessed_at DESC);")
+            c.execute("CREATE INDEX IF NOT EXISTS idx_nodes_importance ON memory_nodes(importance DESC) WHERE deleted=0;")
+            c.execute("CREATE INDEX IF NOT EXISTS idx_nodes_tags ON memory_nodes(tags) WHERE deleted=0;")
+            
+            # ═══════════════════════════════════════════════════════════
+            # FTS5 FULL-TEXT SEARCH
+            # ═══════════════════════════════════════════════════════════
             try:
-                with open(path, "r", encoding="utf-8") as f:
-                    for line in f:
-                        line = line.strip()
-                        if not line:
-                            continue
-                        try:
-                            obj = json.loads(line)
-                            txt = obj.get("text") or obj.get("fact")
-                            if txt:
-                                category = obj.get("category", "")
-                                tags = obj.get("tags", [])
-                                if isinstance(tags, list):
-                                    tags = ",".join(tags)
-                                else:
-                                    tags = tags or ""
-                                    
-                                # Dodaj kategorię do tagów
-                                if category and category not in tags:
-                                    if tags:
-                                        tags = f"{tags},fact,{category}"
-                                    else:
-                                        tags = f"fact,{category}"
-                                        
-                                ltm_add(txt, tags, float(obj.get("conf", 0.8)))
-                                loaded += 1
-                        except Exception as e:
-                            log_error(e, "SEED_FACT_PARSE")
-                
-                log_info(f"Załadowano {loaded} faktów z {path}", "DB")
-                if loaded > 0:
-                    break
+                c.execute("""
+                    CREATE VIRTUAL TABLE IF NOT EXISTS memory_fts 
+                    USING fts5(content, tags, user_id UNINDEXED, node_id UNINDEXED);
+                """)
+                log_info("FTS5 full-text search enabled", "MEMORY_DB")
             except Exception as e:
-                log_error(e, f"SEED_LOAD_{path}")
-        
-        log_info("Fakty załadowane.", "DB")
-    else:
-        log_info(f"Znaleziono {facts_count} faktów w bazie. Pomijam ładowanie.", "DB")
-
-
-# ═══════════════════════════════════════════════════════════════════
-# LTM (Long-Term Memory) FUNCTIONS
-# ═══════════════════════════════════════════════════════════════════
-
-def ltm_add(text: str, tags: str = "", conf: float = 0.7) -> str:
-    """Add fact to Long-Term Memory"""
-    tid = _id_for(text)
-    conn = _db()
-    c = conn.cursor()
-    c.execute("INSERT OR REPLACE INTO facts VALUES(?,?,?,?,?,0)", (tid, text, tags, float(conf), time.time()))
-    try:
-        c.execute("INSERT INTO facts_fts(text,tags) VALUES(?,?)", (text, tags))
-    except Exception:
-        pass
-    conn.commit()
-    conn.close()
-    return tid
-
-
-def ltm_soft_delete(id_or_text: str) -> int:
-    """Soft delete fact from LTM"""
-    tid = id_or_text if len(id_or_text) == 40 else _id_for(id_or_text)
-    conn = _db()
-    c = conn.cursor()
-    c.execute("UPDATE facts SET deleted=1 WHERE id=?", (tid,))
-    conn.commit()
-    n = c.rowcount
-    conn.close()
-    return n
-
-
-def ltm_delete(id_or_text: str) -> Dict[str, Any]:
-    """Delete fact from LTM (soft delete)"""
-    n = ltm_soft_delete(id_or_text)
-    return {"ok": True, "deleted": n}
-
-
-def _fts_safe_query(q: str) -> str:
-    """Make FTS query safe"""
-    q = q.replace('"', ' ').replace("'", ' ').strip()
-    return ' '.join(_tok(q)[:20])
-
-
-def _fts_bm25(query: str, limit: int = 50) -> List[Tuple[str, float]]:
-    """FTS5 BM25 search or fallback to LIKE"""
-    if not FTS5_AVAILABLE:
-        # Fallback: prosta kwerenda LIKE po facts
-        toks = [t for t in _tok(query) if t][:5]
-        if not toks:
-            return []
-        like = "%" + "%".join(toks) + "%"
-        conn = _db()
-        c = conn.cursor()
-        try:
-            rows = c.execute("SELECT text FROM facts WHERE deleted=0 AND text LIKE ? LIMIT ?", (like, int(limit))).fetchall()
-            return [(r["text"], 0.5) for r in rows]
-        finally:
-            conn.close()
-    
-    safe = _fts_safe_query(query)
-    conn = _db()
-    c = conn.cursor()
-    out = []
-    try:
-        rows = c.execute("""SELECT text, bm25(facts_fts) AS bscore
-                          FROM facts_fts WHERE facts_fts MATCH ?
-                          ORDER BY bscore ASC LIMIT ?""", (safe, int(limit))).fetchall()
-        for r in rows:
-            bscore = float(r["bscore"] if r["bscore"] is not None else 10.0)
-            out.append((r["text"], 1.0 / (1.0 + max(0.0, bscore))))
-    finally:
-        conn.close()
-    return out
-
-
-def ltm_search_bm25(q: str, limit: int = 50) -> List[Dict[str, Any]]:
-    """Search LTM using BM25"""
-    hits = _fts_bm25(q, limit)
-    res = []
-    for text, sc in hits:
-        res.append({"text": text, "tags": "", "score": float(sc)})
-    return res
-
-
-def ltm_search_hybrid(q: str, limit: int = 30) -> List[Dict[str, Any]]:
-    """Hybrid search: RAM cache -> FTS5 BM25 -> LIKE/TFIDF"""
-    # 1) RAM cache (najszybsze)
-    if LTM_CACHE_LOADED and LTM_FACTS_CACHE:
-        return _ltm_search_from_cache(q, limit)
-
-    # 2) FTS5 BM25 jeśli dostępne
-    try:
-        if FTS5_AVAILABLE:
-            bm = ltm_search_bm25(q, limit=limit)
-            if bm:
-                return bm
-    except Exception:
-        pass
-
-    # 3) Fallback: LIKE/TF-IDF na tabeli 'facts'
-    try:
-        conn = sqlite3.connect(DB_PATH)
-        c = conn.cursor()
-        rows = c.execute("SELECT id,text,tags,conf,created FROM facts WHERE deleted=0 LIMIT 5000").fetchall()
-        conn.close()
-        if not rows:
-            return []
-        docs = [r[1] or "" for r in rows]
-        s_tfidf = _tfidf_cos(q, docs)
-        pack = [(s_tfidf[i], rows[i]) for i in range(len(rows))]
-        pack.sort(key=lambda x: x[0], reverse=True)
-        res = []
-        for sc, r in pack[:limit]:
-            res.append({"id": r[0], "text": r[1], "tags": r[2], "conf": r[3], "created": r[4], "score": float(sc)})
-        return res
-    except Exception as e:
-        log_error(e, "LTM_FALLBACK_SEARCH")
-        return []
-
-
-def _ltm_search_from_cache(q: str, limit: int = 30) -> List[Dict[str, Any]]:
-    """Szukaj w LTM cache (RAM) zamiast SQLite - DUŻO SZYBSZE!"""
-    if not LTM_FACTS_CACHE:
-        return []
-    
-    query_tokens = _tok(q)
-    query_lower = q.lower()
-    
-    results = []
-    
-    for fact in LTM_FACTS_CACHE:
-        score = 0.0
-        
-        # 1. Exact match w tagach (boost 3x)
-        tags_lower = fact.get('tags', '').lower()
-        for token in query_tokens:
-            if token in tags_lower:
-                score += 3.0
-        
-        # 2. Exact match w tekście (boost 2x)
-        text_lower = fact.get('text', '').lower()
-        if query_lower in text_lower:
-            score += 2.0
-        
-        # 3. Token overlap (TF-IDF style)
-        fact_tokens = fact.get('tokens', [])
-        fact_tokens_set = set(fact_tokens)
-        query_tokens_set = set(query_tokens)
-        overlap = fact_tokens_set & query_tokens_set
-        
-        if overlap:
-            score += len(overlap) * 0.5
-        
-        # 4. Boost by confidence
-        score *= fact.get('conf', 0.7)
-        
-        if score > 0:
-            results.append({
-                'text': fact['text'],
-                'tags': fact.get('tags', ''),
-                'score': score,
-                'conf': fact.get('conf', 0.7)
-            })
-    
-    # Sort by score descending
-    results.sort(key=lambda x: x['score'], reverse=True)
-    return results[:limit]
-
-
-def load_ltm_to_memory():
-    """Load LTM facts into RAM cache for faster search"""
-    global LTM_FACTS_CACHE, LTM_CACHE_LOADED
-    
-    try:
-        conn = _db()
-        c = conn.cursor()
-        rows = c.execute("SELECT text, tags, conf FROM facts WHERE deleted=0 LIMIT ?", (LTM_CACHE_SIZE,)).fetchall()
-        conn.close()
-        
-        LTM_FACTS_CACHE = []
-        for r in rows:
-            fact = {
-                'text': r['text'],
-                'tags': r['tags'] or '',
-                'conf': r['conf'],
-                'tokens': _tok(r['text'])
-            }
-            LTM_FACTS_CACHE.append(fact)
-        
-        LTM_CACHE_LOADED = True
-        log_info(f"Loaded {len(LTM_FACTS_CACHE)} facts to RAM cache", "LTM")
-    except Exception as e:
-        log_error(e, "LOAD_LTM_CACHE")
-
-
-def facts_reindex() -> Dict[str, Any]:
-    """Rebuild LTM search indexes"""
-    if not FTS5_AVAILABLE:
-        return {"ok": False, "error": "fts5_not_available"}
-    
-    conn = _db()
-    c = conn.cursor()
-    try:
-        c.execute("DELETE FROM facts_fts")
-    except Exception:
-        pass
-    
-    rows = c.execute("SELECT text,tags FROM facts WHERE deleted=0 ORDER BY created DESC").fetchall()
-    n = 0
-    for r in rows:
-        try:
-            c.execute("INSERT INTO facts_fts(text,tags) VALUES(?,?)", (r["text"], r["tags"]))
-            n += 1
-        except Exception:
-            pass
-    
-    conn.commit()
-    conn.close()
-    return {"ok": True, "indexed": n}
-
-
-def ltm_reindex() -> Dict[str, Any]:
-    """Rebuild LTM search indexes"""
-    return facts_reindex()
-
-
-# ═══════════════════════════════════════════════════════════════════
-# BLEND SCORES
-# ═══════════════════════════════════════════════════════════════════
-
-def _blend_scores(tfidf: List[float], bm25: List[float], emb: List[float],
-                  wt=(0.45, 0.30, 0.25), recency: List[float] = None) -> List[float]:
-    """
-    Łączy różne metryki wyszukiwania z uwzględnieniem recency bias.
-    
-    Args:
-        tfidf: Wyniki TF-IDF dla dokumentów
-        bm25: Wyniki BM25 dla dokumentów
-        emb: Wyniki podobieństwa embeddingów
-        wt: Wagi dla poszczególnych metryk (tfidf, bm25, emb)
-        recency: Opcjonalnie współczynniki świeżości dokumentów (0-1)
-    """
-    n = max(len(tfidf), len(bm25), len(emb))
-    
-    def get(a, i):
-        return a[i] if i < len(a) else 0.0
-    
-    out = []
-    for i in range(n):
-        a = get(tfidf, i) ** 1.15
-        b = get(bm25, i) ** 1.10
-        c = get(emb, i) ** 1.15
-        
-        # Harmonic mean dla overlapów
-        harm = 0.0
-        if a > 0.35 and b > 0.35:
-            harm += 0.15 * math.sqrt(a * b)
-        if b > 0.35 and c > 0.35:
-            harm += 0.15 * math.sqrt(b * c)
-        if a > 0.7 and c > 0.7:
-            harm += 0.10 * math.sqrt(a * c)
-        
-        # Podstawowy score
-        score = wt[0] * a + wt[1] * b + wt[2] * c + harm
-        
-        # Zastosowanie recency bias jeśli dostępne
-        if recency and i < len(recency):
-            recency_boost = 1.0 + 0.35 * math.log1p(max(0, recency[i]))
-            score *= recency_boost
-        
-        out.append(score)
-    return out
-
-
-# ═══════════════════════════════════════════════════════════════════
-# FACTS EXTRACTION
-# ═══════════════════════════════════════════════════════════════════
-
-def _mk_fact(text: str, base_score: float, tags: List[str]) -> Tuple[str, float, List[str]]:
-    """Create fact tuple"""
-    t = (text or "").strip()
-    if not t:
-        return ("", 0.0, tags)
-    
-    # Adjust score based on negation
-    import re
-    NEGATION_PAT = re.compile(r"\b(nie|nie\s+bardzo|żadn[eyoa])\b", re.I)
-    score_delta = -0.08 if NEGATION_PAT.search(t) else 0.04
-    score = max(0.55, min(0.97, base_score + score_delta))
-    
-    return (t, score, sorted(set(tags)))
-
-
-def _extract_facts_from_turn(u: str, a: str) -> List[Tuple[str, float, List[str]]]:
-    """Extract facts from single conversation turn"""
-    facts = []
-    
-    for role, txt in (("user", u or ""), ("assistant", a or "")):
-        for s in _sentences(txt):
-            s_clean, pii_tags = _tag_pii_in_text(s)
+                log_warning(f"FTS5 not available: {e}", "MEMORY_DB")
             
-            # Check for preferences
-            import re
-            if re.search(r"\b(lubię|wolę|preferuję|kocham|nienawidzę|nie\s+lubię)\b", s, re.I):
-                facts.append(_mk_fact(f"preferencja: {s_clean}", 0.82 if role == "user" else 0.74, ["stm", "preference"] + pii_tags))
-                continue
+            # ═══════════════════════════════════════════════════════════
+            # EPISODIC MEMORY (L1)
+            # ═══════════════════════════════════════════════════════════
+            c.execute("""
+                CREATE TABLE IF NOT EXISTS memory_episodes (
+                    id TEXT PRIMARY KEY,
+                    user_id TEXT NOT NULL,
+                    episode_type TEXT NOT NULL,
+                    summary TEXT NOT NULL,
+                    related_stm_ids TEXT,
+                    metadata TEXT,
+                    timestamp REAL NOT NULL
+                );
+            """)
+            c.execute("CREATE INDEX IF NOT EXISTS idx_episodes_user_ts ON memory_episodes(user_id, timestamp DESC);")
+            c.execute("CREATE INDEX IF NOT EXISTS idx_episodes_type ON memory_episodes(episode_type);")
+            
+            # ═══════════════════════════════════════════════════════════
+            # SEMANTIC CLUSTERS (L2)
+            # ═══════════════════════════════════════════════════════════
+            c.execute("""
+                CREATE TABLE IF NOT EXISTS memory_semantic_clusters (
+                    id TEXT PRIMARY KEY,
+                    user_id TEXT NOT NULL,
+                    cluster_topic TEXT NOT NULL,
+                    related_node_ids TEXT,
+                    consolidated_fact_id TEXT,
+                    strength REAL DEFAULT 1.0,
+                    last_reinforced REAL,
+                    created_at REAL
+                );
+            """)
+            c.execute("CREATE INDEX IF NOT EXISTS idx_clusters_user_topic ON memory_semantic_clusters(user_id, cluster_topic);")
+            c.execute("CREATE INDEX IF NOT EXISTS idx_clusters_strength ON memory_semantic_clusters(strength DESC);")
+            
+            # ═══════════════════════════════════════════════════════════
+            # PROCEDURAL MEMORY (L3)
+            # ═══════════════════════════════════════════════════════════
+            c.execute("""
+                CREATE TABLE IF NOT EXISTS memory_procedures (
+                    id TEXT PRIMARY KEY,
+                    trigger_intent TEXT NOT NULL UNIQUE,
+                    steps TEXT NOT NULL,
+                    success_count INTEGER DEFAULT 0,
+                    failure_count INTEGER DEFAULT 0,
+                    success_rate REAL DEFAULT 0.0,
+                    avg_execution_time REAL DEFAULT 0.0,
+                    context_conditions TEXT,
+                    last_used REAL,
+                    created_at REAL,
+                    adaptations TEXT
+                );
+            """)
+            c.execute("CREATE INDEX IF NOT EXISTS idx_proc_success_rate ON memory_procedures(success_rate DESC);")
+            c.execute("CREATE INDEX IF NOT EXISTS idx_proc_last_used ON memory_procedures(last_used DESC);")
+            
+            # ═══════════════════════════════════════════════════════════
+            # MENTAL MODELS (L4)
+            # ═══════════════════════════════════════════════════════════
+            c.execute("""
+                CREATE TABLE IF NOT EXISTS memory_mental_models (
+                    id TEXT PRIMARY KEY,
+                    model_type TEXT NOT NULL,
+                    subject TEXT NOT NULL,
+                    confidence REAL DEFAULT 0.5,
+                    evidence_count INTEGER DEFAULT 0,
+                    model_data TEXT NOT NULL,
+                    related_node_ids TEXT,
+                    last_updated REAL,
+                    created_at REAL,
+                    validation_score REAL DEFAULT 0.0
+                );
+            """)
+            c.execute("CREATE INDEX IF NOT EXISTS idx_models_type_subject ON memory_mental_models(model_type, subject);")
+            c.execute("CREATE INDEX IF NOT EXISTS idx_models_confidence ON memory_mental_models(confidence DESC);")
+            
+            # ═══════════════════════════════════════════════════════════
+            # ANALYTICS AND METRICS
+            # ═══════════════════════════════════════════════════════════
+            c.execute("""
+                CREATE TABLE IF NOT EXISTS memory_analytics (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    metric_name TEXT NOT NULL,
+                    metric_value REAL NOT NULL,
+                    metadata TEXT,
+                    timestamp REAL NOT NULL
+                );
+            """)
+            c.execute("CREATE INDEX IF NOT EXISTS idx_analytics_name_ts ON memory_analytics(metric_name, timestamp DESC);")
+            
+            conn.commit()
+            log_info("Memory database initialized successfully", "MEMORY_DB")
     
-    return facts
-
-
-def _dedupe_facts(facts: List[Tuple[str, float, List[str]]]) -> List[Tuple[str, float, List[str]]]:
-    """Deduplicate facts"""
-    by = {}
-    for t, sc, tg in facts:
-        t2 = (t or "").strip()
-        if not t2:
-            continue
-        fid = _id_for(t2)
-        if fid in by:
-            ot, os, otg = by[fid]
-            by[fid] = (ot, max(os, sc), sorted(set((otg or []) + (tg or []))))
-        else:
-            by[fid] = (t2, sc, sorted(set(tg or [])))
-    return list(by.values())
-
-
-def _extract_facts(messages: List[dict], max_out: int = 120) -> List[Tuple[str, float, List[str]]]:
-    """Extract facts from conversation messages"""
-    if not messages:
-        return []
+    def save_node(self, node: MemoryNode) -> None:
+        """Save or update memory node"""
+        with self._lock, self._conn() as conn:
+            # Serialize complex fields
+            tags_json = json.dumps(node.tags)
+            metadata_json = json.dumps(node.metadata)
+            connections_json = json.dumps(node.connections)
+            embedding_bytes = pickle.dumps(node._embedding) if node._embedding is not None else None
+            
+            conn.execute("""
+                INSERT OR REPLACE INTO memory_nodes 
+                (id, layer, content, user_id, tags, metadata, importance, confidence,
+                 created_at, accessed_at, access_count, connections, embedding, deleted)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)
+            """, (
+                node.id, node.layer, node.content, node.user_id,
+                tags_json, metadata_json, node.importance, node.confidence,
+                node.created_at, node.accessed_at, node.access_count,
+                connections_json, embedding_bytes
+            ))
+            
+            # Update FTS index
+            try:
+                conn.execute("""
+                    INSERT OR REPLACE INTO memory_fts (content, tags, user_id, node_id)
+                    VALUES (?, ?, ?, ?)
+                """, (node.content, " ".join(node.tags), node.user_id, node.id))
+            except:
+                pass  # FTS not available
+            
+            conn.commit()
     
-    all_facts = []
-    i = 0
-    while i < len(messages):
-        role_i = messages[i].get("role")
-        u = messages[i].get("content", "") if role_i == "user" else ""
-        a = ""
-        if i + 1 < len(messages) and messages[i + 1].get("role") == "assistant":
-            a = messages[i + 1].get("content", "")
-            i += 2
-        else:
-            i += 1
-        all_facts.extend(_extract_facts_from_turn(u, a))
+    def load_node(self, node_id: str) -> Optional[MemoryNode]:
+        """Load memory node by ID"""
+        with self._conn() as conn:
+            row = conn.execute("""
+                SELECT * FROM memory_nodes WHERE id = ? AND deleted = 0
+            """, (node_id,)).fetchone()
+            
+            if not row:
+                return None
+            
+            # Deserialize
+            node = MemoryNode(
+                id=row["id"],
+                layer=row["layer"],
+                content=row["content"],
+                user_id=row["user_id"],
+                tags=json.loads(row["tags"] or "[]"),
+                metadata=json.loads(row["metadata"] or "{}"),
+                importance=row["importance"],
+                confidence=row["confidence"],
+                created_at=row["created_at"],
+                accessed_at=row["accessed_at"],
+                access_count=row["access_count"],
+                connections=json.loads(row["connections"] or "{}")
+            )
+            
+            # Deserialize embedding if exists
+            if row["embedding"]:
+                try:
+                    node._embedding = pickle.loads(row["embedding"])
+                except:
+                    pass
+            
+            return node
     
-    all_facts = _dedupe_facts(all_facts)
-    all_facts.sort(key=lambda x: x[1], reverse=True)
-    return all_facts[:max_out]
-
-
-# ═══════════════════════════════════════════════════════════════════
-# STM (Short-Term Memory) FUNCTIONS
-# ═══════════════════════════════════════════════════════════════════
-
-def memory_add(user: str, role: str, content: str) -> str:
-    """Add message to memory"""
-    mid = uuid.uuid4().hex
-    conn = _db()
-    c = conn.cursor()
-    c.execute("INSERT INTO memory VALUES(?,?,?,?,?)", (mid, user, role, content, time.time()))
-    conn.commit()
-    conn.close()
-    return mid
-
-
-def memory_get(user: str, n: int = 60) -> List[Dict[str, Any]]:
-    """Get last N messages for user"""
-    conn = _db()
-    c = conn.cursor()
-    rows = c.execute("SELECT role,content,ts FROM memory WHERE user=? ORDER BY ts DESC LIMIT ?", (user, n)).fetchall()
-    conn.close()
-    return [dict(r) for r in rows]
-
-
-def memory_summaries(user: str, n: int = 20) -> List[Dict[str, Any]]:
-    """Get memory summaries for user"""
-    conn = _db()
-    c = conn.cursor()
-    rows = c.execute("SELECT summary,details,ts FROM memory_long WHERE user=? ORDER BY ts DESC LIMIT ?", (user, n)).fetchall()
-    conn.close()
-    return [dict(r) for r in rows]
-
-
-def memory_purge(user: str) -> int:
-    """Purge all memory for user"""
-    conn = _db()
-    c = conn.cursor()
-    c.execute("DELETE FROM memory WHERE user=?", (user,))
-    conn.commit()
-    n = c.rowcount
-    conn.close()
-    return n
-
-
-def stm_add(role: str, content: str, user: str = "default") -> str:
-    """Dodaj wiadomość do pamięci krótkoterminowej"""
-    return memory_add(user, role, content)
-
-
-def stm_get_context(user: str = "default", limit: int = 20) -> List[Dict[str, Any]]:
-    """Pobierz ostatnie wiadomości z pamięci krótkoterminowej"""
-    msgs = memory_get(user, n=limit)
-    # Odwróć kolejność żeby od najstarszych do najnowszych
-    return list(reversed(msgs))
-
-
-def stm_clear(user: str = "default") -> int:
-    """Wyczyść pamięć krótkoterminową dla użytkownika"""
-    return memory_purge(user)
-
-
-# ═══════════════════════════════════════════════════════════════════
-# PSYCHE FUNCTIONS
-# ═══════════════════════════════════════════════════════════════════
-
-PL_POS = {"super", "świetnie", "dzięki", "dobrze", "spoko", "okej", "fajnie", "git", "extra"}
-PL_NEG = {"kurwa", "chuj", "zajeb", "wkurw", "błąd", "fatalnie", "źle", "nienawidzę", "masakra"}
-
-
-def psy_get() -> Dict[str, Any]:
-    """Get current psyche state"""
-    conn = _db()
-    c = conn.cursor()
-    r = c.execute("SELECT mood,energy,focus,openness,directness,agreeableness,conscientiousness,neuroticism,style,updated FROM psy_state WHERE id=1").fetchone()
-    conn.close()
-    return dict(r) if r else {"mood": 0.0, "energy": 0.6, "focus": 0.6, "openness": 0.55, "directness": 0.62, "agreeableness": 0.55, "conscientiousness": 0.63, "neuroticism": 0.44, "style": "rzeczowy", "updated": time.time()}
-
-
-def psy_set(**kw) -> Dict[str, Any]:
-    """Set psyche state"""
-    s = psy_get()
-    for k in ("mood", "energy", "focus", "openness", "directness", "agreeableness", "conscientiousness", "neuroticism"):
-        if k in kw and kw[k] is not None:
-            s[k] = max(0.0, min(1.0, float(kw[k])))
-    if "style" in kw and kw["style"]:
-        s["style"] = str(kw["style"])[:64]
-    s["updated"] = time.time()
+    def search_nodes(self, query: str = "", layer: Optional[str] = None,
+                     user_id: Optional[str] = None, limit: int = 100) -> List[MemoryNode]:
+        """Search memory nodes with filters"""
+        with self._conn() as conn:
+            sql = "SELECT * FROM memory_nodes WHERE deleted = 0"
+            params = []
+            
+            if query:
+                # Try FTS first
+                try:
+                    fts_sql = """
+                        SELECT node_id FROM memory_fts 
+                        WHERE memory_fts MATCH ? 
+                        ORDER BY bm25(memory_fts) 
+                        LIMIT ?
+                    """
+                    fts_results = conn.execute(fts_sql, (query, limit)).fetchall()
+                    if fts_results:
+                        node_ids = [r["node_id"] for r in fts_results]
+                        placeholders = ",".join("?" * len(node_ids))
+                        sql = f"SELECT * FROM memory_nodes WHERE id IN ({placeholders}) AND deleted = 0"
+                        params = node_ids
+                except:
+                    # Fallback to LIKE search
+                    sql += " AND content LIKE ?"
+                    params.append(f"%{query}%")
+            
+            if layer and not query:
+                sql += " AND layer = ?"
+                params.append(layer)
+            
+            if user_id and not query:
+                sql += " AND user_id = ?"
+                params.append(user_id)
+            
+            if not query:
+                sql += " ORDER BY accessed_at DESC LIMIT ?"
+                params.append(limit)
+            
+            rows = conn.execute(sql, params).fetchall()
+            
+            # Deserialize nodes
+            nodes = []
+            for row in rows:
+                try:
+                    node = MemoryNode(
+                        id=row["id"],
+                        layer=row["layer"],
+                        content=row["content"],
+                        user_id=row["user_id"],
+                        tags=json.loads(row["tags"] or "[]"),
+                        metadata=json.loads(row["metadata"] or "{}"),
+                        importance=row["importance"],
+                        confidence=row["confidence"],
+                        created_at=row["created_at"],
+                        accessed_at=row["accessed_at"],
+                        access_count=row["access_count"],
+                        connections=json.loads(row["connections"] or "{}")
+                    )
+                    if row["embedding"]:
+                        try:
+                            node._embedding = pickle.loads(row["embedding"])
+                        except:
+                            pass
+                    nodes.append(node)
+                except Exception as e:
+                    log_error(e, "LOAD_NODE")
+            
+            return nodes
     
-    conn = _db()
-    c = conn.cursor()
-    c.execute("""INSERT OR REPLACE INTO psy_state(id,mood,energy,focus,openness,directness,agreeableness,conscientiousness,neuroticism,style,updated)
-                 VALUES(1,?,?,?,?,?,?,?,?,?,?)""",
-              (s["mood"], s["energy"], s["focus"], s["openness"], s["directness"], s["agreeableness"], s["conscientiousness"], s["neuroticism"], s["style"], s["updated"]))
-    conn.commit()
-    conn.close()
-    return s
-
-
-def psy_episode_add(user: str, kind: str, valence: float, intensity: float, tags: str = "", note: str = "") -> str:
-    """Add psyche episode"""
-    eid = uuid.uuid4().hex
-    conn = _db()
-    c = conn.cursor()
-    c.execute("INSERT INTO psy_episode VALUES(?,?,?,?,?,?,?,?,?)", (eid, user, kind, float(valence), float(intensity), tags or "", note or "", time.time()))
-    conn.commit()
-    conn.close()
+    def soft_delete_node(self, node_id: str) -> None:
+        """Soft delete memory node"""
+        with self._lock, self._conn() as conn:
+            conn.execute("UPDATE memory_nodes SET deleted = 1 WHERE id = ?", (node_id,))
+            conn.commit()
     
-    s = psy_get()
-    s["mood"] = max(0.0, min(1.0, s["mood"] + 0.08 * valence * intensity))
-    s["energy"] = max(0.0, min(1.0, s["energy"] + (0.05 if valence > 0 else -0.03) * intensity))
-    s["neuroticism"] = max(0.0, min(1.0, s["neuroticism"] + (-0.04 if valence > 0 else 0.05) * intensity))
-    psy_set(**s)
-    return eid
+    def record_metric(self, metric_name: str, metric_value: float, metadata: Dict[str, Any] = None) -> None:
+        """Record analytics metric"""
+        with self._lock, self._conn() as conn:
+            conn.execute("""
+                INSERT INTO memory_analytics (metric_name, metric_value, metadata, timestamp)
+                VALUES (?, ?, ?, ?)
+            """, (metric_name, metric_value, json.dumps(metadata or {}), time.time()))
+            conn.commit()
 
 
-def psy_observe_text(user: str, text: str):
-    """Observe text for psyche analysis"""
-    tl = text.lower()
-    pos = sum(1 for w in PL_POS if w in tl)
-    neg = sum(1 for w in PL_NEG if w in tl)
-    val = 1.0 if pos > neg else (-1.0 if neg > pos else 0.0)
-    inten = min(1.0, 0.2 + 0.1 * (pos + neg))
-    tags = ",".join(sorted(set(_tok(text))))
-    psy_episode_add(user, "msg", val, inten, tags, "auto")
+# ═══════════════════════════════════════════════════════════════════════════════
+# CACHE LAYER (Redis + RAM)
+# ═══════════════════════════════════════════════════════════════════════════════
 
-
-def psy_reflect() -> Dict[str, Any]:
-    """Reflect on recent psyche episodes"""
-    conn = _db()
-    c = conn.cursor()
-    rows = c.execute("SELECT valence,intensity,ts FROM psy_episode ORDER BY ts DESC LIMIT 100").fetchall()
-    conn.close()
+class MemoryCache:
+    """Two-tier cache: Redis (L1) + RAM (L2)"""
     
-    pos = sum(1 for r in rows if r["valence"] > 0)
-    neg = sum(1 for r in rows if r["valence"] < 0)
-    s = psy_get()
-    hour = time.localtime().tm_hour
-    delta = {}
-    
-    if pos > neg:
-        delta["openness"] = +0.04
-        delta["agreeableness"] = +0.03
-    if neg > pos:
-        delta["focus"] = +0.04
-        delta["directness"] = +0.03
-    if 8 <= hour <= 12:
-        delta["energy"] = +0.03
-    if 0 <= hour <= 6:
-        delta["energy"] = -0.04
-    
-    for k, v in delta.items():
-        s[k] = max(0.0, min(1.0, s.get(k, 0.5) + v))
-    
-    psy_set(**s)
-    
-    rid = uuid.uuid4().hex
-    conn = _db()
-    c = conn.cursor()
-    c.execute("INSERT INTO psy_reflection VALUES(?,?,?,?)", (rid, f"pos={pos} neg={neg} hour={hour}", json.dumps(delta, ensure_ascii=False), time.time()))
-    conn.commit()
-    conn.close()
-    
-    return {"ok": True, "applied": delta, "state": psy_get()}
-
-
-def psy_tune() -> Dict[str, Any]:
-    """Tune LLM parameters based on psyche"""
-    from .config import MORDZIX_SYSTEM_PROMPT
-    
-    s = psy_get()
-    temp = 0.72 + 0.25 * (s["openness"] - 0.5) - 0.12 * (s["directness"] - 0.5) - 0.07 * (s["focus"] - 0.5) + 0.05 * (s["agreeableness"] - 0.5) - 0.06 * (s["neuroticism"] - 0.5)
-    temp = round(max(0.2, min(1.25, temp)), 2)
-    tone = "dynamiczny" if s["energy"] > 0.55 else "zrównoważony"
-    if s["directness"] > 0.72:
-        tone = "konkretny"
-    
-    return {
-        "temperature": temp, 
-        "tone": tone, 
-        "style": s.get("style", "rzeczowy"),
-        "persona_prompt": MORDZIX_SYSTEM_PROMPT
-    }
-
-
-def psy_tick():
-    """Periodic psyche update"""
-    now = time.time()
-    key = "psy:last_tick"
-    conn = _db()
-    c = conn.cursor()
-    row = c.execute("SELECT value,ts FROM meta_memory WHERE key=?", (key,)).fetchone()
-    last = row["ts"] if row else 0
-    
-    if now - last >= 1800:  # 30 min
-        psy_reflect()
-        st = psy_get()
-        if st["mood"] < 0.2:
-            psy_episode_add("system", "auto", +0.6, 0.8, "selfcare", "boost mood")
-        c.execute("INSERT OR REPLACE INTO meta_memory(id,user,key,value,conf,ts) VALUES(?,?,?,?,?,?)",
-                  (key, "system", key, str(now), 1.0, now))
-        conn.commit()
-    conn.close()
-
-
-# ═══════════════════════════════════════════════════════════════════
-# SYSTEM STATS
-# ═══════════════════════════════════════════════════════════════════
-
-def system_stats() -> Dict[str, Any]:
-    """Get comprehensive system statistics"""
-    try:
-        import psutil
-    except:
-        return {"error": "psutil not available"}
-    
-    stats = {
-        "uptime_s": int(time.time()),
-        "process": {
-            "pid": os.getpid(),
-            "cpu_percent": psutil.Process().cpu_percent(interval=0.1),
-            "memory_mb": round(psutil.Process().memory_info().rss / 1024 / 1024, 2),
-        },
-        "system": {
-            "cpu_count": psutil.cpu_count(),
-            "cpu_percent": psutil.cpu_percent(interval=0.1),
-            "memory_total_gb": round(psutil.virtual_memory().total / 1024 / 1024 / 1024, 2),
-            "memory_available_gb": round(psutil.virtual_memory().available / 1024 / 1024 / 1024, 2),
-            "memory_percent": psutil.virtual_memory().percent,
-        }
-    }
-    
-    # Database stats
-    try:
-        conn = _db()
-        c = conn.cursor()
+    def __init__(self, max_ram_size: int = 1000):
+        self.max_ram_size = max_ram_size
+        self._ram_cache: Dict[str, MemoryNode] = {}
+        self._access_order: deque = deque()
+        self._lock = threading.Lock()
         
-        stats["database"] = {
-            "path": DB_PATH,
-            "size_mb": round(os.path.getsize(DB_PATH) / 1024 / 1024, 2) if os.path.exists(DB_PATH) else 0,
-            "facts_total": c.execute("SELECT COUNT(*) FROM facts").fetchone()[0],
-            "facts_active": c.execute("SELECT COUNT(*) FROM facts WHERE deleted=0").fetchone()[0],
-            "memory_messages": c.execute("SELECT COUNT(*) FROM memory").fetchone()[0],
-            "memory_summaries": c.execute("SELECT COUNT(*) FROM memory_long").fetchone()[0],
-            "psyche_episodes": c.execute("SELECT COUNT(*) FROM psy_episode").fetchone()[0],
-        }
-        
-        conn.close()
-    except Exception as e:
-        stats["database"] = {"error": str(e)}
+        # Redis connection
+        self.redis = None
+        if REDIS_AVAILABLE:
+            try:
+                self.redis = get_redis()
+                log_info("Redis cache layer enabled", "MEMORY_CACHE")
+            except Exception as e:
+                log_warning(f"Redis connection failed: {e}", "MEMORY_CACHE")
     
-    # Psyche state
-    try:
-        psyche = psy_get()
-        stats["psyche"] = {
-            "mood": round(psyche["mood"], 2),
-            "energy": round(psyche["energy"], 2),
-            "focus": round(psyche["focus"], 2),
-            "style": psyche["style"]
-        }
-    except:
-        pass
-    
-    return stats
-
-
-# ═══════════════════════════════════════════════════════════════════
-# INITIALIZATION
-# ═══════════════════════════════════════════════════════════════════
-
-# ═══════════════════════════════════════════════════════════════════
-# CACHE FUNCTIONS
-# ═══════════════════════════════════════════════════════════════════
-
-def cache_get(key: str, ttl: int) -> Optional[dict]:
-    """Get cached value"""
-    conn=_db(); c=conn.cursor()
-    row=c.execute("SELECT value,ts FROM cache WHERE key=?", (key,)).fetchone()
-    conn.close()
-    if not row: return None
-    if time.time()-row["ts"]>ttl: return None
-    try: return json.loads(row["value"])
-    except: return None
-
-
-def cache_put(key: str, value: dict):
-    """Put value in cache"""
-    conn=_db(); c=conn.cursor()
-    c.execute("INSERT OR REPLACE INTO cache(key,value,ts) VALUES(?,?,?)",(key,json.dumps(value,ensure_ascii=False),time.time()))
-    conn.commit(); conn.close()
-
-
-# Initialize database on module import
-_init_db()
-_preload_seed_facts()
-
-# Load LTM cache
-load_ltm_to_memory()
-
-log_info("Memory module initialized", "MEMORY")
-
-# ═══════════════════════════════════════════════════════════════════
-# TURN SAVING AND AUTOLEARNING
-# ═══════════════════════════════════════════════════════════════════
-
-def _save_turn_to_memory(user_msg: str, assistant_msg: str, user_id: str = "default"):
-    """Zapisuje turę rozmowy (user + assistant) do STM i potencjalnie do pamięci hierarchicznej."""
-    try:
-        stm_ids = []
-        if user_msg:
-            stm_ids.append(stm_add(role="user", content=user_msg, user=user_id))
-        if assistant_msg:
-            stm_ids.append(stm_add(role="assistant", content=assistant_msg, user=user_id))
+    def get(self, node_id: str) -> Optional[MemoryNode]:
+        """Get node from cache (Redis -> RAM)"""
+        # Try RAM first
+        with self._lock:
+            if node_id in self._ram_cache:
+                self._access_order.remove(node_id)
+                self._access_order.append(node_id)
+                return self._ram_cache[node_id]
         
-        log_info(f"Turn saved to STM for user {user_id}", "MEMORY")
-
-        # Integracja z pamięcią hierarchiczną
-        if HIERARCHICAL_MEMORY_AVAILABLE and hierarchical_memory_manager:
-            _init_hierarchical_memory()  # Ensure initialized
-            if hierarchical_memory_manager:
-                # Tutaj zakładamy, że intencja i akcje są dostępne z innego miejsca
-                # (np. z silnika kognitywnego). Na potrzeby tej funkcji przekażemy wartości domyślne.
-                hierarchical_memory_manager.process_conversation_turn(
-                    user_id=user_id,
-                    user_message=user_msg,
-                    assistant_response=assistant_msg,
-                    stm_ids=stm_ids,
-                    intent="unknown_in_memory_module" # Ta wartość powinna być przekazana z zewnątrz
+        # Try Redis
+        if self.redis:
+            try:
+                data = self.redis.get(f"memory:node:{node_id}")
+                if data:
+                    node_dict = json.loads(data)
+                    node = MemoryNode.from_dict(node_dict)
+                    self.put(node)  # Promote to RAM
+                    return node
+            except Exception as e:
+                log_error(e, "REDIS_GET")
+        
+        return None
+    
+    def put(self, node: MemoryNode, ttl: int = 3600) -> None:
+        """Put node in cache (RAM + Redis)"""
+        # RAM cache (LRU eviction)
+        with self._lock:
+            if node.id in self._ram_cache:
+                self._access_order.remove(node.id)
+            elif len(self._ram_cache) >= self.max_ram_size:
+                # Evict least recently used
+                oldest_id = self._access_order.popleft()
+                del self._ram_cache[oldest_id]
+            
+            self._ram_cache[node.id] = node
+            self._access_order.append(node.id)
+        
+        # Redis cache
+        if self.redis:
+            try:
+                self.redis.setex(
+                    f"memory:node:{node.id}",
+                    ttl,
+                    json.dumps(node.to_dict())
                 )
-
-    except Exception as e:
-        log_error(e, "SAVE_TURN")
-
-def _auto_learn_from_turn(user_msg: str, assistant_msg: str):
-    """Ekstrahuje fakty z tury rozmowy i zapisuje je do LTM."""
-    try:
-        facts = _extract_facts_from_turn(user_msg, assistant_msg)
-        if not facts:
-            return
-
-        added_count = 0
-        for text, conf, tags in facts:
-            if conf > LTM_IMPORTANCE_THRESHOLD:
-                ltm_add(text, tags=",".join(tags), conf=conf)
-                added_count += 1
+            except Exception as e:
+                log_error(e, "REDIS_PUT")
+    
+    def invalidate(self, node_id: str) -> None:
+        """Remove node from cache"""
+        with self._lock:
+            if node_id in self._ram_cache:
+                del self._ram_cache[node_id]
+                self._access_order.remove(node_id)
         
-        if added_count > 0:
-            log_info(f"Auto-learned {added_count} new facts from turn.", "LEARNER")
+        if self.redis:
+            try:
+                self.redis.delete(f"memory:node:{node_id}")
+            except Exception as e:
+                log_error(e, "REDIS_DELETE")
+    
+    def clear(self, user_id: Optional[str] = None) -> None:
+        """Clear cache (optionally for specific user)"""
+        with self._lock:
+            if user_id:
+                # Clear only nodes for this user
+                to_remove = [nid for nid, node in self._ram_cache.items() if node.user_id == user_id]
+                for nid in to_remove:
+                    del self._ram_cache[nid]
+                    self._access_order.remove(nid)
+            else:
+                # Clear everything
+                self._ram_cache.clear()
+                self._access_order.clear()
+        
+        if self.redis and not user_id:
+            try:
+                # Clear all memory keys
+                for key in self.redis.scan_iter("memory:node:*"):
+                    self.redis.delete(key)
+            except Exception as e:
+                log_error(e, "REDIS_CLEAR")
 
-    except Exception as e:
-        log_error(e, "AUTO_LEARN")
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# MEMORY LAYERS (L0-L4)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+class ShortTermMemory:
+    """L0: Active conversation context (RAM only)"""
+    
+    def __init__(self, max_size: int = MAX_STM_SIZE):
+        self.max_size = max_size
+        self._conversations: Dict[str, deque] = defaultdict(lambda: deque(maxlen=max_size))
+        self._lock = threading.Lock()
+    
+    def add_message(self, user_id: str, role: str, content: str, metadata: Dict[str, Any] = None) -> str:
+        """Add message to STM"""
+        msg_id = str(uuid.uuid4())
+        message = {
+            "id": msg_id,
+            "role": role,
+            "content": content,
+            "metadata": metadata or {},
+            "timestamp": time.time()
+        }
+        
+        with self._lock:
+            self._conversations[user_id].append(message)
+        
+        return msg_id
+    
+    def get_context(self, user_id: str, limit: Optional[int] = None) -> List[Dict[str, Any]]:
+        """Get recent conversation context"""
+        with self._lock:
+            messages = list(self._conversations[user_id])
+            if limit:
+                messages = messages[-limit:]
+            return messages
+    
+    def clear(self, user_id: str) -> None:
+        """Clear STM for user"""
+        with self._lock:
+            self._conversations[user_id].clear()
+
+
+class EpisodicMemory:
+    """L1: Recent events and conversations"""
+    
+    def __init__(self, db: MemoryDatabase, cache: MemoryCache):
+        self.db = db
+        self.cache = cache
+    
+    def record_episode(self, user_id: str, episode_type: str, summary: str,
+                       related_stm_ids: List[str] = None, metadata: Dict[str, Any] = None) -> str:
+        """Record new episode"""
+        node = MemoryNode(
+            id=str(uuid.uuid4()),
+            layer="L1",
+            content=summary,
+            user_id=user_id,
+            tags=[episode_type, "episode"],
+            metadata={
+                **(metadata or {}),
+                "episode_type": episode_type,
+                "related_stm_ids": related_stm_ids or []
+            },
+            importance=0.6,
+            confidence=0.8
+        )
+        
+        # Generate embedding
+        node.get_embedding()
+        
+        # Save to DB and cache
+        self.db.save_node(node)
+        self.cache.put(node, ttl=7200)  # 2 hours
+        
+        log_info(f"[L1] Recorded episode: {episode_type}", "EPISODIC")
+        return node.id
+    
+    def get_recent_episodes(self, user_id: str, limit: int = 50) -> List[MemoryNode]:
+        """Get recent episodes for user"""
+        return self.db.search_nodes(layer="L1", user_id=user_id, limit=limit)
+    
+    def find_related_episodes(self, query: str, user_id: str, limit: int = 10) -> List[MemorySearchResult]:
+        """Find episodes related to query"""
+        # Get all episodes
+        all_episodes = self.get_recent_episodes(user_id, limit=200)
+        
+        if not all_episodes:
+            return []
+        
+        # Generate query embedding
+        query_emb = np.array(embed_texts([query])[0])
+        
+        # Score episodes
+        results = []
+        for ep in all_episodes:
+            ep_emb = ep.get_embedding()
+            
+            # Semantic similarity
+            semantic_score = float(cosine_similarity(query_emb, ep_emb))
+            
+            # Recency bonus
+            age_hours = (time.time() - ep.created_at) / 3600
+            recency_score = 1.0 / (1.0 + 0.01 * age_hours)
+            
+            # Combined score
+            total_score = semantic_score * 0.7 + recency_score * 0.3
+            
+            results.append(MemorySearchResult(
+                node=ep,
+                score=total_score,
+                match_type="semantic",
+                context={"semantic": semantic_score, "recency": recency_score}
+            ))
+        
+        # Sort and return top results
+        results.sort(key=lambda r: r.score, reverse=True)
+        return results[:limit]
+
+
+class SemanticMemory:
+    """L2: Long-term facts and knowledge (with vector search)"""
+    
+    def __init__(self, db: MemoryDatabase, cache: MemoryCache):
+        self.db = db
+        self.cache = cache
+    
+    def add_fact(self, content: str, user_id: str = "default", tags: List[str] = None,
+                 confidence: float = 0.7, metadata: Dict[str, Any] = None) -> str:
+        """Add fact to semantic memory"""
+        node = MemoryNode(
+            id=make_id(content),  # Deterministic ID for deduplication
+            layer="L2",
+            content=content,
+            user_id=user_id,
+            tags=(tags or []) + ["fact", "semantic"],
+            metadata=metadata or {},
+            importance=min(1.0, 0.5 + confidence * 0.3),  # Importance based on confidence
+            confidence=confidence
+        )
+        
+        # Check if exists
+        existing = self.cache.get(node.id) or self.db.load_node(node.id)
+        if existing:
+            # Update existing fact (reinforce)
+            existing.confidence = max(existing.confidence, confidence)
+            existing.importance = min(1.0, existing.importance + REINFORCEMENT_BOOST)
+            existing.access()
+            self.db.save_node(existing)
+            self.cache.put(existing)
+            return existing.id
+        
+        # Generate embedding
+        node.get_embedding()
+        
+        # Save
+        self.db.save_node(node)
+        self.cache.put(node, ttl=86400)  # 24 hours
+        
+        log_info(f"[L2] Added fact: {content[:50]}...", "SEMANTIC")
+        return node.id
+    
+    def search_facts(self, query: str, user_id: Optional[str] = None,
+                     limit: int = 20, min_confidence: float = 0.4) -> List[MemorySearchResult]:
+        """Hybrid search: BM25 + Vector similarity"""
+        # Text search (BM25 via FTS)
+        text_nodes = self.db.search_nodes(query=query, layer="L2", user_id=user_id, limit=limit * 2)
+        
+        if not text_nodes:
+            return []
+        
+        # Generate query embedding
+        query_emb = np.array(embed_texts([query])[0])
+        
+        # Score facts
+        results = []
+        for node in text_nodes:
+            if node.confidence < min_confidence:
+                continue
+            
+            node_emb = node.get_embedding()
+            
+            # Semantic similarity
+            semantic_score = float(cosine_similarity(query_emb, node_emb))
+            
+            # Confidence bonus
+            conf_bonus = node.confidence * 0.2
+            
+            # Importance bonus
+            imp_bonus = node.importance * 0.1
+            
+            # Combined score
+            total_score = semantic_score * 0.7 + conf_bonus + imp_bonus
+            
+            results.append(MemorySearchResult(
+                node=node,
+                score=total_score,
+                match_type="hybrid",
+                context={"semantic": semantic_score, "confidence": node.confidence}
+            ))
+        
+        # Sort and return
+        results.sort(key=lambda r: r.score, reverse=True)
+        return results[:limit]
+    
+    def consolidate_from_episodes(self, episodes: List[MemoryNode], user_id: str) -> Optional[str]:
+        """Consolidate episodes into semantic fact"""
+        if len(episodes) < EPISODIC_TO_SEMANTIC_THRESHOLD:
+            return None
+        
+        # Analyze common topics
+        all_tokens = []
+        for ep in episodes:
+            all_tokens.extend(tokenize(ep.content.lower()))
+        
+        topic_counts = Counter(all_tokens)
+        dominant_topic = topic_counts.most_common(1)[0][0] if topic_counts else None
+        
+        if not dominant_topic:
+            return None
+        
+        # Generate consolidated fact
+        fact_text = f"User shows consistent interest in '{dominant_topic}' based on {len(episodes)} interactions."
+        confidence = min(0.95, 0.7 + len(episodes) * 0.03)
+        
+        return self.add_fact(
+            content=fact_text,
+            user_id=user_id,
+            tags=["consolidated", dominant_topic],
+            confidence=confidence,
+            metadata={"source_episodes": [ep.id for ep in episodes]}
+        )
+
+
+class ProceduralMemory:
+    """L3: Learned patterns and procedures"""
+    
+    def __init__(self, db: MemoryDatabase):
+        self.db = db
+    
+    def learn_procedure(self, trigger_intent: str, steps: List[str],
+                        success: bool = True, execution_time: float = 0.0,
+                        context: Dict[str, Any] = None) -> str:
+        """Learn or update procedure"""
+        proc_id = make_id(trigger_intent)
+        
+        with self.db._conn() as conn:
+            row = conn.execute("""
+                SELECT * FROM memory_procedures WHERE trigger_intent = ?
+            """, (trigger_intent,)).fetchone()
+            
+            if row:
+                # Update existing
+                succ = row["success_count"] + (1 if success else 0)
+                fail = row["failure_count"] + (0 if success else 1)
+                total = succ + fail
+                rate = succ / total if total > 0 else 0.0
+                
+                # Update average execution time
+                old_avg = row["avg_execution_time"] or 0.0
+                execs = row["success_count"] + row["failure_count"]
+                new_avg = ((old_avg * execs) + execution_time) / (execs + 1) if execution_time > 0 else old_avg
+                
+                conn.execute("""
+                    UPDATE memory_procedures 
+                    SET success_count = ?, failure_count = ?, success_rate = ?,
+                        avg_execution_time = ?, last_used = ?
+                    WHERE trigger_intent = ?
+                """, (succ, fail, rate, new_avg, time.time(), trigger_intent))
+                
+                proc_id = row["id"]
+            else:
+                # Create new
+                proc_id = str(uuid.uuid4())
+                conn.execute("""
+                    INSERT INTO memory_procedures 
+                    (id, trigger_intent, steps, success_count, failure_count, 
+                     success_rate, avg_execution_time, context_conditions, 
+                     last_used, created_at, adaptations)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """, (
+                    proc_id, trigger_intent, json.dumps(steps),
+                    1 if success else 0, 0 if success else 1,
+                    1.0 if success else 0.0, execution_time,
+                    json.dumps(context or {}), time.time(), time.time(),
+                    json.dumps([])
+                ))
+            
+            conn.commit()
+        
+        log_info(f"[L3] Learned procedure: {trigger_intent}", "PROCEDURAL")
+        return proc_id
+    
+    def get_procedure(self, trigger_intent: str) -> Optional[Dict[str, Any]]:
+        """Get procedure by intent"""
+        with self.db._conn() as conn:
+            row = conn.execute("""
+                SELECT * FROM memory_procedures WHERE trigger_intent = ?
+            """, (trigger_intent,)).fetchone()
+            
+            if not row:
+                return None
+            
+            return {
+                "id": row["id"],
+                "trigger_intent": row["trigger_intent"],
+                "steps": json.loads(row["steps"]),
+                "success_rate": row["success_rate"],
+                "avg_execution_time": row["avg_execution_time"],
+                "success_count": row["success_count"],
+                "failure_count": row["failure_count"]
+            }
+
+
+class MentalModels:
+    """L4: User profiles and domain knowledge"""
+    
+    def __init__(self, db: MemoryDatabase):
+        self.db = db
+    
+    def build_user_profile(self, user_id: str, semantic_facts: List[MemoryNode],
+                           episodes: List[MemoryNode]) -> str:
+        """Build or update user profile model"""
+        # Extract preferences from facts
+        topic_freq = defaultdict(float)
+        for fact in semantic_facts:
+            for tag in fact.tags:
+                if tag not in {"fact", "semantic", "consolidated"}:
+                    topic_freq[tag] += fact.confidence
+        
+        # Top topics
+        top_topics = [t for t, _ in sorted(topic_freq.items(), key=lambda x: x[1], reverse=True)[:10]]
+        
+        # Analyze episode patterns
+        episode_types = Counter(ep.metadata.get("episode_type", "unknown") for ep in episodes)
+        
+        # Build model data
+        model_data = {
+            "user_id": user_id,
+            "top_topics": top_topics,
+            "episode_distribution": dict(episode_types),
+            "total_facts": len(semantic_facts),
+            "total_episodes": len(episodes),
+            "avg_fact_confidence": sum(f.confidence for f in semantic_facts) / len(semantic_facts) if semantic_facts else 0.0,
+            "last_updated": time.time()
+        }
+        
+        # Calculate confidence
+        confidence = min(1.0, len(semantic_facts) / 50.0 * 0.5 + len(episodes) / 100.0 * 0.5)
+        
+        # Save model
+        model_id = f"user_profile_{user_id}"
+        with self.db._conn() as conn:
+            conn.execute("""
+                INSERT OR REPLACE INTO memory_mental_models
+                (id, model_type, subject, confidence, evidence_count, model_data,
+                 related_node_ids, last_updated, created_at, validation_score)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, (
+                model_id, "user_profile", user_id, confidence,
+                len(semantic_facts) + len(episodes),
+                json.dumps(model_data),
+                json.dumps([f.id for f in semantic_facts]),
+                time.time(), time.time(), confidence
+            ))
+            conn.commit()
+        
+        log_info(f"[L4] Built user profile for {user_id}", "MENTAL_MODELS")
+        return model_id
+    
+    def get_user_profile(self, user_id: str) -> Optional[Dict[str, Any]]:
+        """Get user profile model"""
+        with self.db._conn() as conn:
+            row = conn.execute("""
+                SELECT * FROM memory_mental_models 
+                WHERE model_type = 'user_profile' AND subject = ?
+            """, (user_id,)).fetchone()
+            
+            if not row:
+                return None
+            
+            return {
+                "id": row["id"],
+                "confidence": row["confidence"],
+                "data": json.loads(row["model_data"]),
+                "last_updated": row["last_updated"]
+            }
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# UNIFIED MEMORY SYSTEM
+# ═══════════════════════════════════════════════════════════════════════════════
+
+class UnifiedMemorySystem:
+    """Main memory system orchestrator"""
+    
+    def __init__(self):
+        # Core components
+        self.db = MemoryDatabase()
+        self.cache = MemoryCache(max_ram_size=MAX_SEMANTIC_SIZE)
+        
+        # Memory layers
+        self.stm = ShortTermMemory()
+        self.episodic = EpisodicMemory(self.db, self.cache)
+        self.semantic = SemanticMemory(self.db, self.cache)
+        self.procedural = ProceduralMemory(self.db)
+        self.mental_models = MentalModels(self.db)
+        
+        # Background tasks
+        self._consolidation_task = None
+        self._cleanup_task = None
+        self._running = False
+        
+        log_info("Unified Memory System initialized", "MEMORY")
+    
+    def start_background_tasks(self) -> None:
+        """Start background consolidation and cleanup"""
+        if self._running:
+            return
+        
+        self._running = True
+        
+        def consolidation_loop():
+            while self._running:
+                try:
+                    self.auto_consolidate()
+                except Exception as e:
+                    log_error(e, "CONSOLIDATION")
+                time.sleep(AUTO_CONSOLIDATION_INTERVAL)
+        
+        def cleanup_loop():
+            while self._running:
+                try:
+                    self.cleanup_old_memories()
+                except Exception as e:
+                    log_error(e, "CLEANUP")
+                time.sleep(CLEANUP_INTERVAL)
+        
+        self._consolidation_task = threading.Thread(target=consolidation_loop, daemon=True)
+        self._cleanup_task = threading.Thread(target=cleanup_loop, daemon=True)
+        
+        self._consolidation_task.start()
+        self._cleanup_task.start()
+        
+        log_info("Background tasks started", "MEMORY")
+    
+    def stop_background_tasks(self) -> None:
+        """Stop background tasks"""
+        self._running = False
+        log_info("Background tasks stopped", "MEMORY")
+    
+    def process_conversation_turn(self, user_id: str, user_message: str,
+                                  assistant_response: str, intent: str = "chat",
+                                  metadata: Dict[str, Any] = None) -> Dict[str, Any]:
+        """Process complete conversation turn"""
+        # Add to STM
+        user_msg_id = self.stm.add_message(user_id, "user", user_message, metadata)
+        assistant_msg_id = self.stm.add_message(user_id, "assistant", assistant_response, metadata)
+        
+        # Create episodic memory
+        episode_summary = f"User: {user_message[:100]}... | Assistant: {assistant_response[:100]}..."
+        episode_id = self.episodic.record_episode(
+            user_id=user_id,
+            episode_type=intent,
+            summary=episode_summary,
+            related_stm_ids=[user_msg_id, assistant_msg_id],
+            metadata={**(metadata or {}), "intent": intent}
+        )
+        
+        # Extract facts if important
+        semantic_updates = []
+        if len(user_message) > 50 and any(kw in user_message.lower() for kw in ["lubię", "preferuję", "ważne", "zawsze", "nigdy"]):
+            fact_id = self.semantic.add_fact(
+                content=f"User preference: {user_message}",
+                user_id=user_id,
+                tags=["preference", intent],
+                confidence=0.75,
+                metadata={"source_episode": episode_id}
+            )
+            semantic_updates.append(fact_id)
+        
+        return {
+            "stm_ids": [user_msg_id, assistant_msg_id],
+            "episode_id": episode_id,
+            "semantic_updates": semantic_updates,
+            "timestamp": time.time()
+        }
+    
+    def retrieve_context(self, query: str, user_id: str, max_results: int = 10) -> Dict[str, Any]:
+        """Retrieve comprehensive context across all layers"""
+        # L0: STM
+        stm_context = self.stm.get_context(user_id, limit=10)
+        
+        # L1: Episodic
+        episodic_results = self.episodic.find_related_episodes(query, user_id, limit=5)
+        
+        # L2: Semantic
+        semantic_results = self.semantic.search_facts(query, user_id, limit=max_results)
+        
+        # L4: User profile
+        user_profile = self.mental_models.get_user_profile(user_id)
+        
+        # Calculate overall confidence
+        all_scores = [r.score for r in episodic_results + semantic_results]
+        avg_confidence = sum(all_scores) / len(all_scores) if all_scores else 0.0
+        
+        return {
+            "query": query,
+            "user_id": user_id,
+            "stm_context": stm_context,
+            "episodic_memories": [r.to_dict() for r in episodic_results],
+            "semantic_facts": [r.to_dict() for r in semantic_results],
+            "user_profile": user_profile,
+            "confidence": avg_confidence,
+            "total_results": len(episodic_results) + len(semantic_results)
+        }
+    
+    def auto_consolidate(self, user_id: str = None) -> Dict[str, Any]:
+        """Automatic memory consolidation (L1 -> L2 -> L4)"""
+        stats = {
+            "episodes_processed": 0,
+            "facts_created": 0,
+            "models_updated": 0
+        }
+        
+        # Get all users or specific user
+        users = [user_id] if user_id else self._get_all_users()
+        
+        for uid in users:
+            # Get recent episodes
+            episodes = self.episodic.get_recent_episodes(uid, limit=100)
+            if len(episodes) < EPISODIC_TO_SEMANTIC_THRESHOLD:
+                continue
+            
+            # Consolidate to semantic memory
+            fact_id = self.semantic.consolidate_from_episodes(episodes, uid)
+            if fact_id:
+                stats["facts_created"] += 1
+            
+            stats["episodes_processed"] += len(episodes)
+            
+            # Update mental model
+            semantic_facts = self.db.search_nodes(layer="L2", user_id=uid, limit=200)
+            if len(semantic_facts) >= 10:
+                self.mental_models.build_user_profile(uid, semantic_facts, episodes)
+                stats["models_updated"] += 1
+        
+        log_info(f"Consolidation complete: {stats}", "MEMORY")
+        return stats
+    
+    def cleanup_old_memories(self, max_age_days: int = 90) -> Dict[str, Any]:
+        """Clean up old, low-importance memories"""
+        cutoff_time = time.time() - (max_age_days * 24 * 3600)
+        deleted_count = 0
+        
+        with self.db._conn() as conn:
+            # Soft delete old, low-importance episodic memories
+            result = conn.execute("""
+                UPDATE memory_nodes
+                SET deleted = 1
+                WHERE layer = 'L1' 
+                  AND created_at < ?
+                  AND importance < 0.3
+                  AND deleted = 0
+            """, (cutoff_time,))
+            deleted_count = result.rowcount
+            conn.commit()
+        
+        log_info(f"Cleaned up {deleted_count} old memories", "MEMORY")
+        return {"deleted_count": deleted_count}
+    
+    def get_health_stats(self) -> Dict[str, Any]:
+        """Get comprehensive memory system health statistics"""
+        with self.db._conn() as conn:
+            stats = {
+                "L0_stm": {
+                    "active_conversations": len(self.stm._conversations),
+                    "total_messages": sum(len(conv) for conv in self.stm._conversations.values())
+                },
+                "L1_episodic": {
+                    "total": conn.execute("SELECT COUNT(*) as c FROM memory_nodes WHERE layer='L1' AND deleted=0").fetchone()["c"],
+                    "last_24h": conn.execute("SELECT COUNT(*) as c FROM memory_nodes WHERE layer='L1' AND deleted=0 AND created_at > ?", (time.time() - 86400,)).fetchone()["c"]
+                },
+                "L2_semantic": {
+                    "total": conn.execute("SELECT COUNT(*) as c FROM memory_nodes WHERE layer='L2' AND deleted=0").fetchone()["c"],
+                    "avg_confidence": conn.execute("SELECT AVG(confidence) as a FROM memory_nodes WHERE layer='L2' AND deleted=0").fetchone()["a"] or 0.0
+                },
+                "L3_procedural": {
+                    "total": conn.execute("SELECT COUNT(*) as c FROM memory_procedures").fetchone()["c"],
+                    "avg_success_rate": conn.execute("SELECT AVG(success_rate) as a FROM memory_procedures").fetchone()["a"] or 0.0
+                },
+                "L4_models": {
+                    "total": conn.execute("SELECT COUNT(*) as c FROM memory_mental_models").fetchone()["c"],
+                    "avg_confidence": conn.execute("SELECT AVG(confidence) as a FROM memory_mental_models").fetchone()["a"] or 0.0
+                },
+                "cache": {
+                    "ram_size": len(self.cache._ram_cache),
+                    "redis_available": self.cache.redis is not None
+                }
+            }
+        
+        # Calculate overall health score
+        health_components = [
+            min(1.0, stats["L2_semantic"]["total"] / 100),  # At least 100 facts
+            stats["L2_semantic"]["avg_confidence"],  # Good confidence
+            min(1.0, stats["L3_procedural"]["total"] / 10),  # At least 10 procedures
+            stats["L3_procedural"]["avg_success_rate"],  # High success rate
+            stats["L4_models"]["avg_confidence"]  # Good model confidence
+        ]
+        stats["overall_health"] = sum(health_components) / len(health_components)
+        
+        return stats
+    
+    def _get_all_users(self) -> List[str]:
+        """Get list of all users with memories"""
+        with self.db._conn() as conn:
+            rows = conn.execute("SELECT DISTINCT user_id FROM memory_nodes WHERE deleted=0").fetchall()
+            return [r["user_id"] for r in rows]
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# GLOBAL SINGLETON AND PUBLIC API
+# ═══════════════════════════════════════════════════════════════════════════════
+
+_memory_system: Optional[UnifiedMemorySystem] = None
+
+def get_memory_system() -> UnifiedMemorySystem:
+    """Get global memory system instance"""
+    global _memory_system
+    if _memory_system is None:
+        _memory_system = UnifiedMemorySystem()
+        _memory_system.start_background_tasks()
+    return _memory_system
+
+
+# Public API functions (backwards compatibility)
+
+def memory_add_conversation(user_id: str, user_msg: str, assistant_msg: str,
+                            intent: str = "chat", metadata: Dict[str, Any] = None) -> Dict[str, Any]:
+    """Add conversation turn to memory"""
+    return get_memory_system().process_conversation_turn(user_id, user_msg, assistant_msg, intent, metadata)
+
+
+def memory_search(query: str, user_id: str = "default", max_results: int = 10) -> Dict[str, Any]:
+    """Search across all memory layers"""
+    return get_memory_system().retrieve_context(query, user_id, max_results)
+
+
+def memory_add_fact(content: str, user_id: str = "default", tags: List[str] = None,
+                    confidence: float = 0.7) -> str:
+    """Add fact to semantic memory"""
+    return get_memory_system().semantic.add_fact(content, user_id, tags, confidence)
+
+
+def memory_get_health() -> Dict[str, Any]:
+    """Get memory system health statistics"""
+    return get_memory_system().get_health_stats()
+
+
+def memory_consolidate_now(user_id: str = None) -> Dict[str, Any]:
+    """Trigger manual consolidation"""
+    return get_memory_system().auto_consolidate(user_id)
+
+
+# Initialize on module import
+log_info("Unified Memory System module loaded", "MEMORY")

@@ -29,7 +29,16 @@ export const chatAPI = {
   },
 
   streamMessage: (request: ChatRequest): EventSource => {
-    const url = `${API_BASE}/chat/assistant/stream`;
+    const params = new URLSearchParams({
+      messages: JSON.stringify(request.messages),
+      user_id: request.user_id || 'guest',
+      use_memory: request.use_memory?.toString() || 'true',
+      use_research: request.use_research?.toString() || 'true',
+      internet_allowed: request.internet_allowed?.toString() || 'true',
+      auto_learn: request.auto_learn?.toString() || 'true',
+      use_batch_processing: request.use_batch_processing?.toString() || 'true',
+    });
+    const url = `${API_BASE}/chat/assistant/stream?${params}`;
     return new EventSource(url, { withCredentials: true });
   },
 

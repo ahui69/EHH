@@ -9,8 +9,8 @@ interface VoiceInputProps {
 }
 
 export const VoiceInput: React.FC<VoiceInputProps> = ({ onTranscription, className = '' }) => {
-  const [isRecording, setIsRecording] = useState(false);
-  const [isProcessing, setIsProcessing] = useState(false);
+  const [isRecording, setIsRecording] = useState(true);
+  const [isProcessing, setIsProcessing] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [recordingTime, setRecordingTime] = useState(0);
 

@@ -21,9 +21,12 @@ python-multipart==0.0.9
 sse-starlette==1.8.2
 orjson==3.10.7
 aiosqlite==0.20.0
-prometheus-client==0.20.0
+prometheus-client==0.20.0   
 spacy==3.7.5
 redis==5.2.0
 scikit-learn==1.5.2
 numpy>=1.19.0,<2.0.0
+python-dotenv==1.0.0
+openai==1.35.0
+sentence-transformers==3.0.1
 # spaCy language models are installed separately via: python -m spacy download pl_core_news_sm
