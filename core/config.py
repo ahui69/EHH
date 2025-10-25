@@ -25,6 +25,7 @@ except ImportError:
 # ═══════════════════════════════════════════════════════════════════
 
 AUTH_TOKEN = os.getenv("AUTH_TOKEN", "ssjjMijaja6969")
+SECRET_KEY = os.getenv("SECRET_KEY", "mordzix-secret-key-change-in-production-" + AUTH_TOKEN)
 
 # ═══════════════════════════════════════════════════════════════════
 # PATHS & DIRECTORIES
