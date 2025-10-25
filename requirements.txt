@@ -24,4 +24,6 @@ aiosqlite==0.20.0
 prometheus-client==0.20.0
 spacy==3.7.5
 redis==5.2.0
+scikit-learn==1.5.2
+numpy>=1.19.0,<2.0.0
 # spaCy language models are installed separately via: python -m spacy download pl_core_news_sm

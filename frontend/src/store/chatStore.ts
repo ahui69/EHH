@@ -22,10 +22,15 @@ export const useChatStore = create<ChatState>()(
       conversations: [],
       currentConversationId: null,
       settings: {
-        theme: 'dark',
+        theme: typeof window !== 'undefined' && window.matchMedia 
+          ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
+          : 'dark',
         temperature: 0.7,
         maxTokens: 2000,
         model: 'gpt-4-turbo-preview',
+        useMemory: true,
+        useResearch: true,
+        autoLearn: true,
       },
       addConversation: (conversation) =>
         set((state) => ({
@@ -48,7 +53,15 @@ export const useChatStore = create<ChatState>()(
           ),
         })),
       updateSettings: (newSettings) =>
-        set((state) => ({ settings: { ...state.settings, ...newSettings } })),
+        set((state) => {
+          const updated = { ...state.settings, ...newSettings };
+          // Persist theme to localStorage separately for instant load
+          if (newSettings.theme && typeof window !== 'undefined') {
+            localStorage.setItem('mordzix-theme', newSettings.theme);
+            document.documentElement.classList.toggle('dark', newSettings.theme === 'dark');
+          }
+          return { settings: updated };
+        }),
       exportConversations: () => JSON.stringify({ conversations: get().conversations, settings: get().settings, exportedAt: Date.now() }),
       importConversations: (data) => {
         try {

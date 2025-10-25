@@ -38,6 +38,9 @@ export interface PsycheState {
 
 export interface Settings {
   theme: 'light' | 'dark';
+  temperature?: number;
+  maxTokens?: number;
+  model?: string;
   authToken?: string;
   useMemory: boolean;
   useResearch: boolean;
