@@ -243,7 +243,7 @@ if not _SUPPRESS_IMPORT_LOGS:
 
 # 1. ASSISTANT (główny chat z AI)
 try:
-    import assistant_endpoint
+    from core import assistant_endpoint
     app.include_router(assistant_endpoint.router)
     if not _SUPPRESS_IMPORT_LOGS:
         print("✓ Assistant endpoint      /api/chat/assistant")
@@ -253,7 +253,7 @@ except Exception as e:
 
 # 2. PSYCHE (stan psychiczny AI)
 try:
-    import psyche_endpoint
+    from core import psyche_endpoint
     app.include_router(psyche_endpoint.router)
     if not _SUPPRESS_IMPORT_LOGS:
         print("✓ Psyche endpoint         /api/psyche/*")
@@ -353,7 +353,7 @@ except Exception as e:
 
 # 12. SUGGESTIONS (proaktywne sugestie)
 try:
-    import suggestions_endpoint
+    from core import suggestions_endpoint
     app.include_router(suggestions_endpoint.router)
     if not _SUPPRESS_IMPORT_LOGS:
         print("✓ Suggestions endpoint    /api/suggestions/*")
@@ -383,7 +383,7 @@ except Exception as e:
 
 # 15. COGNITIVE (cognitive engine - zaawansowane przetwarzanie)
 try:
-    import cognitive_endpoint
+    from core import cognitive_endpoint
     app.include_router(cognitive_endpoint.router)
     if not _SUPPRESS_IMPORT_LOGS:
         print("✓ Cognitive endpoint      /api/cognitive/*")
