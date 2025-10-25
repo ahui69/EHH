@@ -24,6 +24,8 @@ from .cache_invalidation import cleanup_expired_facts, get_cache_ttl, get_fact_a
 from .personality_presets import get_personality_manager, PERSONALITY_PRESETS
 from .conversation_analytics import get_analytics
 from .batch_research import get_batch_engine
+from .context_awareness import get_context_engine, process_context
+from .fact_validation import get_fact_validator, validate_fact, validate_facts
 
 
 router = APIRouter(prefix="/api/memory", tags=["Memory System"])
@@ -66,6 +68,21 @@ class PersonalityRequest(BaseModel):
 class BatchResearchRequest(BaseModel):
     queries: List[str] = Field(..., min_items=1, max_items=50, description="List of research queries")
     deduplicate: bool = Field(default=True, description="Remove duplicate queries")
+
+
+class ContextProcessRequest(BaseModel):
+    conversation_id: str = Field(..., description="Conversation ID")
+    messages: List[Dict[str, Any]] = Field(..., description="All conversation messages")
+    force_compress: bool = Field(default=False, description="Force compression")
+
+
+class FactValidationRequest(BaseModel):
+    fact: str = Field(..., min_length=1, max_length=5000, description="Fact to validate")
+    sources: List[str] = Field(..., min_items=1, description="Source URLs")
+
+
+class BatchFactValidationRequest(BaseModel):
+    facts_with_sources: List[Dict[str, Any]] = Field(..., description="List of {fact, source} dicts")
 
 
 # ═══════════════════════════════════════════════════════════════════
@@ -855,6 +872,297 @@ async def batch_web_research(
         )
     except Exception as e:
         log_error(e, "BATCH_RESEARCH_API")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/context/process", response_model=MemoryResponse)
+async def process_conversation_context(
+    request: ContextProcessRequest,
+    user=Depends(get_current_user)
+):
+    """
+    CONTEXT AWARENESS ENGINE - Smart context compression
+    
+    **Features (FULL LOGIC!):**
+    - Auto-detect długie rozmowy (>50 messages)
+    - Smart trimming (40% token reduction)
+    - Rolling summary co 50 messages
+    - Context compression with importance scoring
+    
+    **How it works:**
+    1. Detects if conversation is long (>50 msgs)
+    2. Creates rolling summaries every 50 messages
+    3. Trims context using importance scoring:
+       - Recency (newer = more important)
+       - Content type (questions, code = important)
+       - Length (longer = more substantial)
+       - Position (first/last = more important)
+    4. Compresses to fit token budget (4000 tokens default)
+    5. Returns compressed context + stats
+    
+    **Example Request:**
+    ```json
+    {
+      "conversation_id": "conv123",
+      "messages": [
+        {"role": "user", "content": "Hello"},
+        {"role": "assistant", "content": "Hi!"},
+        ...
+      ],
+      "force_compress": false
+    }
+    ```
+    
+    **Example Response:**
+    ```json
+    {
+      "success": true,
+      "data": {
+        "conversation_id": "conv123",
+        "message_count": 120,
+        "is_long_conversation": true,
+        "compressed": true,
+        "original_count": 120,
+        "compressed_count": 72,
+        "token_reduction_pct": 40.0,
+        "rolling_summary": "Previous discussion covered...",
+        "processed_messages": [...]
+      }
+    }
+    ```
+    
+    **Use Cases:**
+    - Long customer support conversations
+    - Extended coding sessions
+    - Multi-day chat threads
+    - Token budget optimization
+    """
+    try:
+        engine = get_context_engine()
+        
+        # Process context
+        processed_messages, stats = engine.process_context(
+            conversation_id=request.conversation_id,
+            messages=request.messages,
+            force_compress=request.force_compress
+        )
+        
+        log_info(f"[CONTEXT_API] Processed conversation {request.conversation_id}: {len(request.messages)} → {len(processed_messages)} messages")
+        
+        return MemoryResponse(
+            success=True,
+            data={
+                **stats,
+                "processed_messages": processed_messages
+            },
+            message=f"Context processed: {len(request.messages)} → {len(processed_messages)} messages" + 
+                    (f", {stats['token_reduction_pct']:.1f}% token reduction" if stats.get('compressed') else "")
+        )
+    except Exception as e:
+        log_error(e, "CONTEXT_API")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/context/summary/{conversation_id}", response_model=MemoryResponse)
+async def get_conversation_summary(
+    conversation_id: str,
+    user=Depends(get_current_user)
+):
+    """
+    Get rolling summary for conversation
+    
+    **Returns:**
+    Full summary combining all rolling summaries created for this conversation
+    """
+    try:
+        engine = get_context_engine()
+        summary = engine.get_conversation_summary(conversation_id)
+        
+        if summary is None:
+            return MemoryResponse(
+                success=True,
+                data={"summary": None},
+                message="No summary available for this conversation"
+            )
+        
+        return MemoryResponse(
+            success=True,
+            data={"summary": summary, "conversation_id": conversation_id},
+            message="Summary retrieved successfully"
+        )
+    except Exception as e:
+        log_error(e, "CONTEXT_SUMMARY_API")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/validate/fact", response_model=MemoryResponse)
+async def validate_single_fact(
+    request: FactValidationRequest,
+    user=Depends(get_current_user)
+):
+    """
+    MULTI-SOURCE FACT VALIDATION - Validate single fact
+    
+    **Features (FULL LOGIC!):**
+    - Cross-check across 3+ sources
+    - Voting system (2/3 sources must agree)
+    - Confidence boost (+0.1 for validated facts)
+    - Source reliability weighting
+    - Fact provenance tracking
+    
+    **Source Reliability:**
+    - High (1.0): Wikipedia, Britannica, ArXiv, Nature, Science
+    - Medium (0.8): Reddit, StackOverflow, GitHub, Medium
+    - Low (0.6): Twitter, Facebook, YouTube
+    - Default (0.7): Other sources
+    
+    **Validation Process:**
+    1. Normalize fact text (lowercase, trim, remove punctuation)
+    2. Compare with facts from all sources (85% similarity = same fact)
+    3. Calculate agreement score with reliability weighting
+    4. If 67% agreement → validated
+    5. Boost confidence by +0.1
+    6. Track provenance (source URLs, domains, reliability)
+    
+    **Example Request:**
+    ```json
+    {
+      "fact": "Paris is the capital of France",
+      "sources": [
+        "https://wikipedia.org/wiki/Paris",
+        "https://britannica.com/place/Paris",
+        "https://travel.state.gov/france"
+      ]
+    }
+    ```
+    
+    **Example Response:**
+    ```json
+    {
+      "success": true,
+      "data": {
+        "fact": "Paris is the capital of France",
+        "is_validated": true,
+        "confidence": 0.95,
+        "source_count": 3,
+        "agreement_score": 0.93,
+        "sources": ["wikipedia.org", "britannica.com", "travel.state.gov"],
+        "provenance": {
+          "validation_method": "multi-source",
+          "sources": [
+            {"url": "wikipedia.org", "reliability": 1.0, "domain": "wikipedia.org"}
+          ],
+          "total_sources": 3,
+          "agreement_threshold": 0.67
+        }
+      }
+    }
+    ```
+    
+    **Use Cases:**
+    - Verify web research facts
+    - Reduce hallucinations
+    - Build trust in AI responses
+    - Fact-checking pipelines
+    """
+    try:
+        validator = get_fact_validator()
+        
+        # Validate
+        result = validator.validate(
+            fact=request.fact,
+            sources=request.sources
+        )
+        
+        log_info(f"[FACT_VALIDATION_API] Fact validated: {result.is_validated}, confidence: {result.confidence:.2f}")
+        
+        return MemoryResponse(
+            success=True,
+            data=result.to_dict(),
+            message=f"Fact {'validated' if result.is_validated else 'rejected'}: {result.confidence:.2f} confidence from {len(result.sources)} sources"
+        )
+    except Exception as e:
+        log_error(e, "FACT_VALIDATION_API")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/validate/batch", response_model=MemoryResponse)
+async def validate_facts_batch(
+    request: BatchFactValidationRequest,
+    user=Depends(get_current_user)
+):
+    """
+    BATCH FACT VALIDATION - Validate multiple facts
+    
+    **Example Request:**
+    ```json
+    {
+      "facts_with_sources": [
+        {"fact": "Water boils at 100°C", "source": "https://wikipedia.org/wiki/Water"},
+        {"fact": "Water boils at 100°C", "source": "https://britannica.com/science/water"},
+        {"fact": "Earth is flat", "source": "https://example.com/conspiracy"}
+      ]
+    }
+    ```
+    
+    **Returns:**
+    List of validation results with confidence scores and provenance
+    """
+    try:
+        validator = get_fact_validator()
+        
+        # Convert to tuples
+        facts_with_sources = [
+            (item["fact"], item["source"]) 
+            for item in request.facts_with_sources
+        ]
+        
+        # Validate batch
+        results = validator.validate_batch(facts_with_sources)
+        
+        validated_count = sum(1 for r in results if r.is_validated)
+        
+        log_info(f"[FACT_VALIDATION_BATCH_API] {validated_count}/{len(results)} facts validated")
+        
+        return MemoryResponse(
+            success=True,
+            data={
+                "results": [r.to_dict() for r in results],
+                "total_facts": len(results),
+                "validated_count": validated_count,
+                "rejection_count": len(results) - validated_count
+            },
+            message=f"Batch validation complete: {validated_count}/{len(results)} facts validated"
+        )
+    except Exception as e:
+        log_error(e, "FACT_VALIDATION_BATCH_API")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/validate/stats", response_model=MemoryResponse)
+async def get_validation_stats(user=Depends(get_current_user)):
+    """
+    Get fact validation statistics
+    
+    **Returns:**
+    - Total validations performed
+    - Validated facts count
+    - Rejected facts count
+    - Cache size
+    - Cache hit rate
+    - Validation rate
+    """
+    try:
+        validator = get_fact_validator()
+        stats = validator.get_stats()
+        
+        return MemoryResponse(
+            success=True,
+            data=stats,
+            message=f"Validation stats: {stats['validated_facts']}/{stats['total_validations']} validated ({stats['validation_rate']:.1%})"
+        )
+    except Exception as e:
+        log_error(e, "FACT_VALIDATION_STATS_API")
         raise HTTPException(status_code=500, detail=str(e))
 
 
