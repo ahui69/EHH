@@ -10,7 +10,7 @@ from typing import List, Dict, Any, Optional
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from .helpers import log_info, log_error
-from .research import perform_research  # Import existing research function
+from .research import answer_with_sources  # Use existing research function
 
 
 # ═══════════════════════════════════════════════════════════════════
@@ -46,8 +46,9 @@ class BatchResearchEngine:
         start_time = time.time()
         
         try:
-            # Use existing research.py logic
-            results = perform_research(query, memory_manager=memory_manager)
+            # Use existing research.py answer_with_sources function
+            # Note: answer_with_sources(q, deep_research) doesn't accept memory_manager parameter
+            results = answer_with_sources(query, deep_research=False)
             
             elapsed = time.time() - start_time
             log_info(f"[BATCH_RESEARCH] Query '{query[:50]}...' completed in {elapsed:.2f}s")
