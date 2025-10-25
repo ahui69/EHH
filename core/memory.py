@@ -1430,8 +1430,12 @@ log_info("Unified Memory System module loaded", "MEMORY")
 # COMPATIBILITY LAYER - Legacy API support
 # ═══════════════════════════════════════════════════════════════════
 
-# Database handle for legacy code
-_db = None  # Will be initialized by get_memory_system()
+# Database handle for legacy code - callable that returns SQLite connection
+def _db():
+    """Legacy database connection factory"""
+    import sqlite3
+    from .config import DB_PATH
+    return sqlite3.connect(str(DB_PATH), check_same_thread=False)
 
 def psy_get(key: str = "mood", user_id: str = "default") -> Any:
     """Legacy psyche state getter"""
