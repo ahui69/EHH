@@ -1245,17 +1245,17 @@ async def list_conversations(
         user_id = user.get("username", "guest")
         mem = get_memory_system()
         
-        # Get episodes (L1) grouped by conversation_id
+        # Get episodes (L1) grouped by conversation_id from memory_nodes
         with mem.db._conn() as conn:
             rows = conn.execute("""
                 SELECT 
                     json_extract(metadata, '$.conversation_id') as conv_id,
-                    MIN(timestamp) as created_at,
-                    MAX(timestamp) as updated_at,
+                    MIN(created_at) as created_at,
+                    MAX(created_at) as updated_at,
                     COUNT(*) as message_count,
                     json_extract(metadata, '$.title') as title
-                FROM memory_episodes
-                WHERE user_id = ? AND deleted = 0
+                FROM memory_nodes
+                WHERE user_id = ? AND layer = 'L1' AND deleted = 0
                     AND json_extract(metadata, '$.conversation_id') IS NOT NULL
                 GROUP BY json_extract(metadata, '$.conversation_id')
                 ORDER BY updated_at DESC
@@ -1297,15 +1297,16 @@ async def get_conversation_messages(
         user_id = user.get("username", "guest")
         mem = get_memory_system()
         
-        # Get all episodes for this conversation
+        # Get all L1 nodes for this conversation from memory_nodes
         with mem.db._conn() as conn:
             rows = conn.execute("""
-                SELECT episode_id, summary, metadata, timestamp
-                FROM memory_episodes
+                SELECT id, content, metadata, created_at
+                FROM memory_nodes
                 WHERE user_id = ? 
+                    AND layer = 'L1'
                     AND deleted = 0
                     AND json_extract(metadata, '$.conversation_id') = ?
-                ORDER BY timestamp ASC
+                ORDER BY created_at ASC
             """, (user_id, conversation_id)).fetchall()
         
         messages = []
@@ -1373,9 +1374,10 @@ async def delete_conversation(
         
         with mem.db._conn() as conn:
             result = conn.execute("""
-                UPDATE memory_episodes 
+                UPDATE memory_nodes 
                 SET deleted = 1 
                 WHERE user_id = ? 
+                    AND layer = 'L1'
                     AND json_extract(metadata, '$.conversation_id') = ?
             """, (user_id, conversation_id))
             conn.commit()
