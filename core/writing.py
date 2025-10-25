@@ -10,7 +10,13 @@ from typing import Dict, List, Optional
 
 from .config import FASHION, PL_SYNONYMS, PL_COLLOC
 from .helpers import log_error, make_id as _id_for, tokenize as _tok
-from .memory import psy_tune, _db, ltm_add
+try:
+    from .memory import psy_tune, _db, ltm_add
+except ImportError:
+    # Fallback for unified memory system
+    def psy_tune(*args, **kwargs): return {}
+    _db = None
+    def ltm_add(*args, **kwargs): pass
 from .llm import call_llm
 import json
 
