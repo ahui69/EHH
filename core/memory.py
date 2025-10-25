@@ -1544,6 +1544,19 @@ def psy_episode_add(event_type: str, content: str, metadata: Dict = None, user_i
         log_error(f"psy_episode_add failed: {e}", "MEMORY")
         return ""
 
+def psy_observe_text(text: str, user_id: str = "default") -> Dict[str, Any]:
+    """Legacy psyche text observation - returns sentiment analysis stub"""
+    return {
+        "sentiment": "neutral",
+        "confidence": 0.5,
+        "entities": [],
+        "keywords": []
+    }
+
+def _init_db():
+    """Legacy database init - stub (UnifiedMemorySystem handles this)"""
+    pass
+
 # Export all compatibility functions
 __all__ = [
     "UnifiedMemorySystem",
@@ -1552,10 +1565,12 @@ __all__ = [
     "get_memory_manager",
     "time_manager",
     "_db",
+    "_init_db",
     "psy_get",
     "psy_set",
     "psy_tune",
     "psy_episode_add",
+    "psy_observe_text",
     "ltm_add",
     "ltm_search_hybrid",
     "stm_add",
