@@ -283,7 +283,7 @@ except Exception as e:
 
 # 5. TRAVEL (wyszukiwanie podróży)
 try:
-    import travel_endpoint
+    from core import travel_endpoint
     app.include_router(travel_endpoint.router)
     if not _SUPPRESS_IMPORT_LOGS:
         print("✓ Travel endpoint         /api/travel/*")
@@ -393,7 +393,7 @@ except Exception as e:
 
 # 16. MEMORY (hierarchical memory system)
 try:
-    import memory_endpoint
+    from core import memory_endpoint
     app.include_router(memory_endpoint.router)
     if not _SUPPRESS_IMPORT_LOGS:
         print("✓ Memory endpoint         /api/memory/*")
