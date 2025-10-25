@@ -22,7 +22,11 @@ from dataclasses import asdict
 # Podstawowe importy systemowe
 from .config import *
 from .llm import call_llm, call_llm_stream
-from .memory import memory_manager
+try:
+    from .memory import get_memory_system
+    memory_manager = get_memory_system()
+except ImportError:
+    memory_manager = None
 from .hierarchical_memory import hierarchical_memory_manager
 from .helpers import log_info, log_error, log_warning
 from .tools_registry import get_tool_by_name
