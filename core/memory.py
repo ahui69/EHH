@@ -1309,5 +1309,86 @@ def memory_consolidate_now(user_id: str = None) -> Dict[str, Any]:
     return get_memory_system().auto_consolidate(user_id)
 
 
+# ═══════════════════════════════════════════════════════════════════════════════
+# LEGACY SUPPORT - TimeManager for backward compatibility
+# ═══════════════════════════════════════════════════════════════════════════════
+
+class TimeManager:
+    """Time management for backward compatibility with legacy tools.py"""
+    
+    def __init__(self):
+        self.timezone = None
+    
+    def get_current_time(self) -> dict:
+        """Get current time and date"""
+        import datetime
+        now = datetime.datetime.now()
+        
+        return {
+            "timestamp": now.timestamp(),
+            "datetime": now.isoformat(),
+            "date": now.strftime("%Y-%m-%d"),
+            "time": now.strftime("%H:%M:%S"),
+            "day_of_week": now.strftime("%A"),
+            "day_of_week_pl": self._get_polish_day(now),
+            "month": now.strftime("%B"),
+            "month_pl": self._get_polish_month(now),
+            "year": now.year,
+            "is_weekend": now.weekday() >= 5,
+            "is_morning": 6 <= now.hour < 12,
+            "is_afternoon": 12 <= now.hour < 18,
+            "is_evening": 18 <= now.hour < 22,
+            "is_night": now.hour >= 22 or now.hour < 6
+        }
+    
+    def _get_polish_day(self, dt) -> str:
+        days_pl = {
+            "Monday": "poniedziałek",
+            "Tuesday": "wtorek",
+            "Wednesday": "środa",
+            "Thursday": "czwartek",
+            "Friday": "piątek",
+            "Saturday": "sobota",
+            "Sunday": "niedziela"
+        }
+        return days_pl.get(dt.strftime("%A"), dt.strftime("%A"))
+    
+    def _get_polish_month(self, dt) -> str:
+        months_pl = {
+            "January": "styczeń",
+            "February": "luty",
+            "March": "marzec",
+            "April": "kwiecień",
+            "May": "maj",
+            "June": "czerwiec",
+            "July": "lipiec",
+            "August": "sierpień",
+            "September": "wrzesień",
+            "October": "październik",
+            "November": "listopad",
+            "December": "grudzień"
+        }
+        return months_pl.get(dt.strftime("%B"), dt.strftime("%B"))
+    
+    def format_time_greeting(self) -> str:
+        time_info = self.get_current_time()
+        if time_info["is_morning"]:
+            return "Dzień dobry"
+        elif time_info["is_afternoon"]:
+            return "Dzień dobry"
+        elif time_info["is_evening"]:
+            return "Dobry wieczór"
+        else:
+            return "Dobranoc"
+    
+    def format_date_info(self) -> str:
+        time_info = self.get_current_time()
+        return f"Dziś jest {time_info['day_of_week_pl']}, {time_info['date']}"
+
+
+# Global TimeManager instance
+time_manager = TimeManager()
+
+
 # Initialize on module import
 log_info("Unified Memory System module loaded", "MEMORY")
